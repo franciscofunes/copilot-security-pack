@@ -105,6 +105,19 @@ See **[Distribution and Release Guide](docs/DISTRIBUTION_AND_RELEASES.md)** for:
 
 See [BOOTSTRAP_PROMPT.md](BOOTSTRAP_PROMPT.md) for the one-time bootstrap workflow used during the pilot stage.
 
+## Release maturity
+
+Recommended evolution:
+
+```text
+Stage A: repository-native pilot
+Stage B: versioned install.ps1 / upgrade.ps1
+Stage C: native Copilot plugin for reusable agents + skills
+Stage D: plugin marketplace only when multiple plugins justify discovery/catalog management
+```
+
+The plugin layer is intended for supported Copilot plugin hosts. Application-specific policy, baselines, CI integration, and scanner configuration remain repository-owned.
+
 ## Current status
 
 **v1 development / pilot stage.** Do not treat a passing scan as proof that an application is vulnerability-free.
