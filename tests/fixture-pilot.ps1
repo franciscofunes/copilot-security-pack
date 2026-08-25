@@ -7,12 +7,13 @@ function Assert-True([bool]$Condition, [string]$Message) {
 
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $fixtureRoot = Join-Path $repoRoot 'fixtures/vulnerable-dotnet-angular-monorepo'
-$evaluationPath = Join-Path $fixtureRoot 'evaluation.json'
+$evaluationPath = Join-Path $repoRoot 'evaluations/vulnerable-dotnet-angular-monorepo.json'
 $apiPath = Join-Path $fixtureRoot 'api/Program.cs'
 $guardPath = Join-Path $fixtureRoot 'web/src/app/admin.guard.ts'
 $servicePath = Join-Path $fixtureRoot 'web/src/app/api.service.ts'
 
-Assert-True (Test-Path $evaluationPath) 'evaluation rubric is missing'
+Assert-True (Test-Path $evaluationPath) 'external evaluation rubric is missing'
+Assert-True (-not (Test-Path (Join-Path $fixtureRoot 'evaluation.json'))) 'answer key must not live inside the pilot workspace'
 $evaluation = Get-Content $evaluationPath -Raw | ConvertFrom-Json
 Assert-True (@($evaluation.cases).Count -eq 4) 'fixture must contain exactly four expected security canaries'
 
@@ -35,6 +36,8 @@ $tempRoot = Join-Path ([System.IO.Path]::GetTempPath()) ('copilot-security-pack-
 try {
     Copy-Item -Recurse -Force $fixtureRoot $tempRoot
     git -C $tempRoot init --quiet
+
+    Assert-True (-not (Test-Path (Join-Path $tempRoot 'evaluation.json'))) 'pilot copy leaked the evaluation answer key'
 
     & (Join-Path $repoRoot 'installer/install.ps1') -TargetRepo $tempRoot
 
