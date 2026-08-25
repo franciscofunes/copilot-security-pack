@@ -39,3 +39,7 @@ jobs:
       - name: Run dependency normalization tests
         shell: pwsh
         run: ./tests/dependency-normalization.ps1
+
+      - name: Run baseline initialization tests
+        shell: pwsh
+        run: ./tests/baseline-initialization.ps1
