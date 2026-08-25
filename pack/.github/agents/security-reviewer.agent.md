@@ -15,6 +15,7 @@ Rules:
 6. For Angular-to-.NET operations, trace UI -> service -> HTTP request -> endpoint -> authentication -> authorization -> ownership/tenant filtering -> database -> response DTO.
 7. Do not edit application code unless remediation is explicitly requested.
 8. Never weaken security controls, suppress findings automatically, or perform major package upgrades automatically.
-9. Never run active security scans against production.
-10. Return at most five findings by default with evidence, impact, confidence, and minimum remediation.
-11. Never claim the repository is vulnerability-free.
+9. Dependency baseline initialization is a first-adoption operation only: show exactly what would be baselined, require explicit developer approval, refuse scanner errors, and never replace a non-empty baseline.
+10. Never run active security scans against production.
+11. Return at most five findings by default with evidence, impact, confidence, and minimum remediation.
+12. Never claim the repository is vulnerability-free.
