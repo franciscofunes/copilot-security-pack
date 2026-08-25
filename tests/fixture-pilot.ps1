@@ -8,11 +8,13 @@ function Assert-True([bool]$Condition, [string]$Message) {
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $fixtureRoot = Join-Path $repoRoot 'fixtures/vulnerable-dotnet-angular-monorepo'
 $evaluationPath = Join-Path $repoRoot 'evaluations/vulnerable-dotnet-angular-monorepo.json'
+$preparePilot = Join-Path $repoRoot 'evaluations/prepare-pilot.ps1'
 $apiPath = Join-Path $fixtureRoot 'api/Program.cs'
 $guardPath = Join-Path $fixtureRoot 'web/src/app/admin.guard.ts'
 $servicePath = Join-Path $fixtureRoot 'web/src/app/api.service.ts'
 
 Assert-True (Test-Path $evaluationPath) 'external evaluation rubric is missing'
+Assert-True (Test-Path $preparePilot) 'pilot preparation script is missing'
 Assert-True (-not (Test-Path (Join-Path $fixtureRoot 'evaluation.json'))) 'answer key must not live inside the pilot workspace'
 $evaluation = Get-Content $evaluationPath -Raw | ConvertFrom-Json
 Assert-True (@($evaluation.cases).Count -eq 4) 'fixture must contain exactly four expected security canaries'
@@ -34,12 +36,7 @@ if ($LASTEXITCODE -ne 0) { throw 'fixture .NET API failed to compile' }
 
 $tempRoot = Join-Path ([System.IO.Path]::GetTempPath()) ('copilot-security-pack-fixture-' + [guid]::NewGuid().ToString('N'))
 try {
-    Copy-Item -Recurse -Force $fixtureRoot $tempRoot
-    git -C $tempRoot init --quiet
-
-    Assert-True (-not (Test-Path (Join-Path $tempRoot 'evaluation.json'))) 'pilot copy leaked the evaluation answer key'
-
-    & (Join-Path $repoRoot 'installer/install.ps1') -TargetRepo $tempRoot
+    & $preparePilot -Destination $tempRoot
 
     Assert-True (Test-Path (Join-Path $tempRoot '.github/agents/security-reviewer.agent.md')) 'Security Reviewer agent not installed into fixture'
     Assert-True (Test-Path (Join-Path $tempRoot '.github/skills/security-dotnet/SKILL.md')) '.NET skill not installed into fixture'
@@ -51,6 +48,13 @@ try {
     Assert-True ($installedManifest -match 'dotnet:\s*true') 'fixture install did not detect .NET'
     Assert-True ($installedManifest -match 'angular:\s*true') 'fixture install did not detect Angular/Yarn'
     Assert-True ($installedManifest -match 'crossStackSecurity:\s*true') 'fixture install did not detect cross-stack repository'
+
+    $leaks = @(Get-ChildItem -Path $tempRoot -Recurse -File | Where-Object { $_.Name -match '(evaluation|rubric|answer)' -or $_.FullName -match '[\\/]evaluations[\\/]' })
+    Assert-True ($leaks.Count -eq 0) 'prepared pilot workspace leaked evaluation material'
+
+    $changed = @(git -C $tempRoot diff --name-only)
+    Assert-True ($changed -contains 'api/Program.cs') 'pilot setup did not expose API source as a current change'
+    Assert-True ($changed -contains 'web/src/app/api.service.ts') 'pilot setup did not expose Angular service as a current change'
 
     Write-Host 'Fixture pilot validation passed.'
 }
