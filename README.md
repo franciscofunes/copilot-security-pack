@@ -14,7 +14,7 @@ The pack combines:
 - On-demand .NET, Angular, and cross-stack security skills.
 - Reusable Copilot prompt commands.
 - One PowerShell security dispatcher.
-- Deterministic NuGet/Yarn scanning and normalised findings.
+- Deterministic NuGet/Yarn scanning and normalized findings.
 - CI security-gate templates.
 - Existing-vulnerability baselines and explicit exceptions.
 
@@ -63,15 +63,47 @@ For privileged flows, the cross-stack skill traces Angular component -> service 
 
 A UI route guard is never treated as a replacement for API authorization.
 
-## Rollout
+## Distribution model
 
-1. Pilot this v1 against one representative company monorepo.
-2. Adapt the generated pack to the repository's real SDK, Yarn generation, CI and private feeds.
-3. Validate noise, false positives and developer UX.
+Do not manually copy/paste the pack into each application repository.
+
+The intended lifecycle is:
+
+```text
+Canonical repository
+      |
+      | semantic-versioned release
+      v
+Versioned installer
+      |
+      v
+Self-contained application repository
+```
+
+Project-local installation remains the IDE-compatible baseline. Reusable agents and skills can additionally be packaged as a native Copilot plugin for Copilot hosts that support plugin installation.
+
+See **[Distribution and Release Guide](docs/DISTRIBUTION_AND_RELEASES.md)** for:
+
+- Project-local versus plugin distribution.
+- Recommended installer and upgrade flow.
+- Semantic versioning and release tags.
+- Plugin repository installation.
+- Declarative plugin enablement.
+- Plugin marketplaces.
+- Skills-only distribution.
+- Rollback and supply-chain guidance.
+
+## Pilot flow
+
+1. Validate this v1 against one representative .NET + Angular/Yarn monorepo.
+2. Adapt the generated pack to the repository's real SDK, Yarn generation, CI, and package feeds.
+3. Validate noise, false positives, scanner runtime, and developer UX.
 4. Harden scanner normalization and CI gating.
-5. Version the pack and roll it out repository-by-repository.
+5. Build the versioned installer and upgrade flow.
+6. Tag the first stable release.
+7. Roll out through reviewable repository changes rather than manual copy/paste.
 
-See [BOOTSTRAP_PROMPT.md](BOOTSTRAP_PROMPT.md) for the one-time installation prompt.
+See [BOOTSTRAP_PROMPT.md](BOOTSTRAP_PROMPT.md) for the one-time bootstrap workflow used during the pilot stage.
 
 ## Current status
 
