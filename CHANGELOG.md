@@ -8,6 +8,17 @@ The project follows semantic versioning once stable releases begin.
 
 ### Added
 
+- `v0.3.0-alpha.1` fixture-pilot development line.
+- Intentionally vulnerable .NET + Angular/Yarn monorepo fixture for repeatable security evaluation.
+- Four source-review canaries covering tenant isolation, frontend-only authorization, privilege-changing mass assignment, and SSRF.
+- External machine-readable evaluation rubric kept outside the pilot application workspace.
+- Blind VS Code Copilot pilot protocol with a 20-point scoring rubric.
+- CI validation that the fixture compiles, preserves expected canaries, and receives all applicable pack components.
+
+## [0.2.0-alpha.1] - 2026-08-25
+
+### Added
+
 - Canonical distributable payload under `pack/`, separated from this repository's development/self-test configuration.
 - Versioned, stack-aware `installer/install.ps1` for .NET-only, Angular/Yarn-only, and combined monorepos.
 - `installer/upgrade.ps1` with installed-version checks and downgrade protection.
@@ -26,11 +37,10 @@ The project follows semantic versioning once stable releases begin.
 - Refusal to initialize or replace a baseline when scanner evidence is incomplete or an established baseline already exists.
 - Policy failure when deterministic scanners fail, preventing false-green security results.
 
-### Remaining before v0.2.0-alpha.1 promotion
+### Known limitations
 
-- Final documentation consistency pass.
-- Final release-candidate CI validation.
-- Pilot validation in a representative real .NET + Angular/Yarn repository remains recommended before a stable v1 release.
+- Real VS Code Copilot behavior still requires a blind fixture/VDI pilot before a stable v1 release.
+- Source-level authorization/business-logic findings still depend on Copilot reasoning rather than deterministic scanner output alone.
 
 ## [0.1.0-alpha.1] - 2026-08-24
 
