@@ -35,3 +35,7 @@ jobs:
       - name: Run installer selection tests
         shell: pwsh
         run: ./tests/installer-selection.ps1
+
+      - name: Run dependency normalization tests
+        shell: pwsh
+        run: ./tests/dependency-normalization.ps1
