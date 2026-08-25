@@ -64,6 +64,16 @@ function Get-YarnGeneration {
     return [pscustomobject]@{ generation = 'unknown'; version = $versionText }
 }
 
+function Get-YarnInvocation {
+    param([Parameter(Mandatory)][string]$Generation)
+
+    if ($Generation -eq 'modern' -and (Get-Command corepack -ErrorAction SilentlyContinue)) {
+        return [pscustomobject]@{ fileName = 'corepack'; prefix = @('yarn') }
+    }
+
+    return [pscustomobject]@{ fileName = 'yarn'; prefix = @() }
+}
+
 $outputDir = Join-Path $RepositoryRoot '.security/output'
 New-Item -ItemType Directory -Force -Path $outputDir | Out-Null
 $output = Join-Path $outputDir 'yarn-vulnerabilities.json'
@@ -89,8 +99,9 @@ foreach ($lock in @($Profile.angular.yarnLocks)) {
         continue
     }
 
+    $invocation = Get-YarnInvocation -Generation $yarn.generation
     $installArgs = if ($yarn.generation -eq 'modern') { @('install','--immutable') } else { @('install','--frozen-lockfile') }
-    $install = Invoke-CommandCapture -FileName 'yarn' -Arguments $installArgs -WorkingDirectory $workspaceRoot
+    $install = Invoke-CommandCapture -FileName $invocation.fileName -Arguments @($invocation.prefix + $installArgs) -WorkingDirectory $workspaceRoot
 
     if ($install.exitCode -ne 0) {
         $reports += [pscustomobject]@{
@@ -112,7 +123,7 @@ foreach ($lock in @($Profile.angular.yarnLocks)) {
         @('audit','--json')
     }
 
-    $audit = Invoke-CommandCapture -FileName 'yarn' -Arguments $auditArgs -WorkingDirectory $workspaceRoot
+    $audit = Invoke-CommandCapture -FileName $invocation.fileName -Arguments @($invocation.prefix + $auditArgs) -WorkingDirectory $workspaceRoot
     $reports += [pscustomobject]@{
         workspaceRoot = $workspaceRelative
         generation = $yarn.generation
