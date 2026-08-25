@@ -21,14 +21,17 @@ if (Test-Path $nugetPath) {
 }
 
 $yarnPath = Join-Path $output 'yarn-vulnerabilities.jsonl'
-if (Test-Path $yarnPath -and (Get-Item $yarnPath).Length -gt 0) {
-    $findings += [pscustomobject]@{
-        id = 'YARN-AUDIT'
-        source = 'yarn-audit'
-        status = 'needs-review'
-        severity = 'unknown'
-        category = 'dependency'
-        evidence = 'Yarn audit output is available in yarn-vulnerabilities.jsonl.'
+if (Test-Path $yarnPath) {
+    $yarnFile = Get-Item $yarnPath
+    if ($yarnFile.Length -gt 0) {
+        $findings += [pscustomobject]@{
+            id = 'YARN-AUDIT'
+            source = 'yarn-audit'
+            status = 'needs-review'
+            severity = 'unknown'
+            category = 'dependency'
+            evidence = 'Yarn audit output is available in yarn-vulnerabilities.jsonl.'
+        }
     }
 }
 
