@@ -5,6 +5,7 @@ on:
     paths:
       - 'installer/**'
       - 'tests/**'
+      - 'fixtures/**'
       - 'pack/**'
       - '.github/agents/**'
       - '.github/prompts/**'
@@ -43,3 +44,7 @@ jobs:
       - name: Run baseline initialization tests
         shell: pwsh
         run: ./tests/baseline-initialization.ps1
+
+      - name: Run realistic fixture pilot validation
+        shell: pwsh
+        run: ./tests/fixture-pilot.ps1
