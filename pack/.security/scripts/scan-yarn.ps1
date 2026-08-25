@@ -64,6 +64,30 @@ function Get-YarnGeneration {
     return [pscustomobject]@{ generation = 'unknown'; version = $versionText }
 }
 
+function Get-YarnInvocation {
+    param([Parameter(Mandatory)][string]$Generation)
+    if ($Generation -eq 'modern' -and (Get-Command corepack -ErrorAction SilentlyContinue)) {
+        return [pscustomobject]@{ fileName = 'corepack'; prefix = @('yarn') }
+    }
+    return [pscustomobject]@{ fileName = 'yarn'; prefix = @() }
+}
+
+function Test-WorkspaceHasDependencies {
+    param([Parameter(Mandatory)][string]$WorkspaceRoot)
+    $packageJsonPath = Join-Path $WorkspaceRoot 'package.json'
+    if (-not (Test-Path $packageJsonPath)) { return $true }
+    try {
+        $packageJson = Get-Content $packageJsonPath -Raw | ConvertFrom-Json
+        foreach ($propertyName in @('dependencies','devDependencies','optionalDependencies')) {
+            $property = $packageJson.PSObject.Properties[$propertyName]
+            if ($null -ne $property -and $null -ne $property.Value -and @($property.Value.PSObject.Properties).Count -gt 0) { return $true }
+        }
+        return $false
+    } catch {
+        return $true
+    }
+}
+
 $outputDir = Join-Path $RepositoryRoot '.security/output'
 New-Item -ItemType Directory -Force -Path $outputDir | Out-Null
 $output = Join-Path $outputDir 'yarn-vulnerabilities.json'
@@ -74,6 +98,20 @@ foreach ($lock in @($Profile.angular.yarnLocks)) {
     $workspaceRelative = [System.IO.Path]::GetRelativePath($RepositoryRoot, $workspaceRoot).Replace('\\','/')
     if ([string]::IsNullOrWhiteSpace($workspaceRelative) -or $workspaceRelative -eq '.') { $workspaceRelative = '.' }
     $yarn = Get-YarnGeneration -WorkspaceRoot $workspaceRoot
+
+    if (-not (Test-WorkspaceHasDependencies -WorkspaceRoot $workspaceRoot)) {
+        $reports += [pscustomobject]@{
+            workspaceRoot = $workspaceRelative
+            generation = $yarn.generation
+            yarnVersion = $yarn.version
+            installExitCode = 0
+            auditExitCode = 0
+            stdout = ''
+            stderr = ''
+            scanStatus = 'completed'
+        }
+        continue
+    }
 
     if ($yarn.generation -eq 'unknown') {
         $reports += [pscustomobject]@{
@@ -89,8 +127,9 @@ foreach ($lock in @($Profile.angular.yarnLocks)) {
         continue
     }
 
+    $invocation = Get-YarnInvocation -Generation $yarn.generation
     $installArgs = if ($yarn.generation -eq 'modern') { @('install','--immutable') } else { @('install','--frozen-lockfile') }
-    $install = Invoke-CommandCapture -FileName 'yarn' -Arguments $installArgs -WorkingDirectory $workspaceRoot
+    $install = Invoke-CommandCapture -FileName $invocation.fileName -Arguments @($invocation.prefix + $installArgs) -WorkingDirectory $workspaceRoot
 
     if ($install.exitCode -ne 0) {
         $reports += [pscustomobject]@{
@@ -106,13 +145,8 @@ foreach ($lock in @($Profile.angular.yarnLocks)) {
         continue
     }
 
-    $auditArgs = if ($yarn.generation -eq 'modern') {
-        @('npm','audit','--all','--recursive','--json')
-    } else {
-        @('audit','--json')
-    }
-
-    $audit = Invoke-CommandCapture -FileName 'yarn' -Arguments $auditArgs -WorkingDirectory $workspaceRoot
+    $auditArgs = if ($yarn.generation -eq 'modern') { @('npm','audit','--all','--recursive','--json') } else { @('audit','--json') }
+    $audit = Invoke-CommandCapture -FileName $invocation.fileName -Arguments @($invocation.prefix + $auditArgs) -WorkingDirectory $workspaceRoot
     $reports += [pscustomobject]@{
         workspaceRoot = $workspaceRelative
         generation = $yarn.generation

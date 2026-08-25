@@ -1,0 +1,8 @@
+{
+  "name": "fixture-web",
+  "private": true,
+  "packageManager": "yarn@4.4.1",
+  "scripts": {
+    "build": "echo fixture-build"
+  }
+}
