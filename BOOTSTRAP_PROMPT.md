@@ -1,16 +1,18 @@
 # Bootstrap Prompt — Install Copilot Security Pack
 
-Paste this once into GitHub Copilot Chat Agent mode at the root of a target repository.
+Use this once during pilot/development to install the Copilot Security Pack into a target repository.
+
+The long-term distribution model is **not** manual copy/paste. After the pilot is validated, use the versioned installer and release flow documented in `docs/DISTRIBUTION_AND_RELEASES.md`.
 
 ---
 
-You are installing the organization-owned Copilot Security Pack into an existing repository.
+You are installing the Copilot Security Pack into an existing repository.
 
 ## Safety rules
 
 - Inspect before modifying.
 - Do not overwrite existing Copilot instructions, CI, analyzers, package configuration, or security tooling blindly.
-- Do not expose credentials or private-feed secrets.
+- Do not expose credentials or package-feed secrets.
 - Do not install global tools or MCP servers.
 - Do not run active scans against production.
 - Do not perform automatic major package upgrades or vulnerability suppressions.
@@ -60,3 +62,7 @@ Run at least:
 Verify scripts and structured output, ensure scans did not modify package manifests/lockfiles, inspect the Git diff, and report skipped checks honestly.
 
 Before pushing or opening a pull request, summarize created/modified files, scan results, tests, limitations, optional unavailable integrations, and any administrator action required. Ask for approval before pushing.
+
+## Release note
+
+This bootstrap workflow exists for pilot/development use. Once the pack is stable, install and upgrade it through the semantic-versioned distribution process documented in `docs/DISTRIBUTION_AND_RELEASES.md` rather than repeatedly using this bootstrap prompt.
