@@ -10,36 +10,53 @@ It does not require Copilot CLI, a Copilot plugin marketplace, MCP servers, or G
 
 ## Architecture
 
-```text
-copilot-security-pack
-  pack/                  canonical distributable payload
-  installer/             install / upgrade / uninstall
-  tests/                 pack and normalization verification
-       |
-       v
-application repository
-  .github/
-    instructions/
-    prompts/
-    agents/
-    skills/
-  .security/
-    run-security.ps1
-    scripts/
-    security-policy.yml
-    dependency-baseline.json
-       |
-       v
-VS Code GitHub Copilot Chat + deterministic local/CI evidence
+```mermaid
+flowchart LR
+    source["copilot-security-pack<br/>canonical repository"] --> release["versioned release"]
+    release --> installer["install.ps1 / upgrade.ps1"]
+    installer --> app["application repository"]
+    app --> vscode["VS Code<br/>GitHub Copilot extension"]
+
+    subgraph local["Repository-native payload"]
+      instructions["instructions"]
+      prompts["prompts"]
+      agents["Security Reviewer"]
+      skills["skills + on-demand references"]
+      security[".security dispatcher + evidence"]
+    end
+
+    app --> local
 ```
 
 Root `.github/` and `.security/` configure and test this source repository. **`pack/` is the source of truth for files distributed to application repositories.**
+
+See [Architecture Diagrams](docs/ARCHITECTURE_DIAGRAMS.md) for distribution, developer review, dependency baseline, upgrade ownership, cross-stack authorization, and blind-pilot diagrams.
+
+## Security review flow
+
+```mermaid
+flowchart TB
+    dev["Developer"] --> chat["Copilot Chat in VS Code"]
+    chat --> reviewer["Security Reviewer / slash prompt"]
+    reviewer --> skill{"Load only relevant expertise"}
+    skill --> dotnet[".NET skill"]
+    skill --> angular["Angular/Yarn skill"]
+    skill --> cross["cross-stack skill"]
+    dotnet --> dispatcher[".security/run-security.ps1"]
+    angular --> dispatcher
+    cross --> dispatcher
+    dispatcher --> evidence["deterministic evidence"]
+    evidence --> normalized["normalized findings + fingerprints"]
+    normalized --> reasoning["Copilot attack-path reasoning"]
+    reasoning --> result["compact findings / minimal remediation / verification"]
+```
 
 ## What the pack provides
 
 - Small repository-wide and path-specific Copilot security instructions.
 - A `Security Reviewer` custom agent.
 - On-demand .NET, Angular/Yarn, and cross-stack security skills.
+- Progressive-disclosure skill references loaded only for deeper domain review.
 - Reusable prompt commands for changed-code review, dependencies, privileged flows, finding investigation/remediation, full audits, and initial baseline adoption.
 - `.security/run-security.ps1` as the single automation entry point.
 - Direct and transitive NuGet vulnerability evidence.
@@ -47,6 +64,7 @@ Root `.github/` and `.security/` configure and test this source repository. **`p
 - Per-advisory normalized findings with stable SHA-256 fingerprints.
 - Existing-vulnerability baseline support without suppressing newly introduced risk.
 - CI policy gating that fails new high/critical findings and scanner failures.
+- Blind fixture/evaluation tooling for measuring actual VS Code Copilot behavior.
 
 ## Developer UX
 
@@ -91,6 +109,16 @@ The installer detects .NET, Angular/Yarn, and combined repositories, installs on
 
 ## Upgrade safety
 
+```mermaid
+flowchart LR
+    upgrade["upgrade.ps1"] --> hash["compare installed SHA-256"]
+    hash --> changed{"managed file edited locally?"}
+    changed -->|no| reconcile["reconcile safely"]
+    changed -->|yes| stop["stop + report conflict"]
+    stop --> review["human review"]
+    review --> force["explicit override if intended"]
+```
+
 ```powershell
 pwsh -NoProfile -File ./installer/upgrade.ps1 `
   -TargetRepo C:\src\my-application
@@ -131,31 +159,38 @@ Safety rules:
 - New high/critical findings remain blocking.
 - Baseline is legacy-debt classification, not proof that a vulnerability is acceptable.
 
-## Security review model
+## Cross-stack security model
+
+For privileged flows, review traces:
 
 ```text
-changed files / dependency manifests
-        |
-        v
-deterministic scanners
-        |
-        v
-normalized findings + fingerprints
-        |
-        v
-Copilot validates exploitability / traces cross-stack boundaries
-        |
-        +--> compact findings
-        +--> minimal remediation when requested
-        +--> focused verification
+Angular component
+  -> service/interceptor
+  -> HTTP request
+  -> ASP.NET endpoint
+  -> authentication
+  -> authorization policy/role
+  -> tenant/object ownership
+  -> repository/database query
+  -> response DTO
 ```
 
-For privileged flows, cross-stack review traces Angular component -> service -> HTTP request -> .NET endpoint -> authentication -> authorization -> tenant/object ownership -> database query -> response DTO. UI guards are never treated as API authorization.
+UI guards are never treated as API authorization.
+
+## Open-source design
+
+The project is released under the [MIT License](LICENSE).
+
+Its architecture is informed by public projects such as GitHub Awesome Copilot, Microsoft vscode-copilot-chat, GitHub Spec Kit, dotnet/skills, and obra/superpowers. They are design references rather than runtime dependencies. We deliberately adopt useful repository-native patterns while rejecting distribution paths that conflict with the VS Code-only host constraint.
+
+See [Open Source and External Design Patterns](docs/OPEN_SOURCE_AND_EXTERNAL_PATTERNS.md).
 
 ## Release maturity
 
 - `v0.1.0-alpha.1`: architecture preview.
 - `v0.2.0-alpha.1`: versioned installer, canonical payload, dependency normalization, fingerprints, and guarded baseline workflow.
+- `v0.3.0-alpha.1`: realistic fixture, blind VS Code Copilot evaluation harness, and Yarn/Corepack portability hardening.
+- `v0.4.0-alpha.1`: architecture diagrams, open-source licensing, and progressive-disclosure skill references (development line).
 - Stable `v1.0.0`: only after representative real-repository/VDI validation and additional hardening.
 
 A passing scan is evidence from the checks that ran; it is never proof that an application is vulnerability-free.
