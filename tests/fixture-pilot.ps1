@@ -49,7 +49,12 @@ try {
     Assert-True ($installedManifest -match 'angular:\s*true') 'fixture install did not detect Angular/Yarn'
     Assert-True ($installedManifest -match 'crossStackSecurity:\s*true') 'fixture install did not detect cross-stack repository'
 
-    $leaks = @(Get-ChildItem -Path $tempRoot -Recurse -File | Where-Object { $_.Name -match '(evaluation|rubric|answer)' -or $_.FullName -match '[\\/]evaluations[\\/]' })
+    # Only the actual external evaluation artifacts are forbidden in the blind workspace.
+    # Legitimate installed skill references may contain words such as "rubric".
+    $leaks = @(Get-ChildItem -Path $tempRoot -Recurse -File | Where-Object {
+        $_.Name -in @('evaluation.json', 'vulnerable-dotnet-angular-monorepo.json', 'RUN_TEMPLATE.md') -or
+        $_.FullName -match '[\\/]evaluations[\\/]'
+    })
     Assert-True ($leaks.Count -eq 0) 'prepared pilot workspace leaked evaluation material'
 
     $changed = @(git -C $tempRoot diff --name-only)

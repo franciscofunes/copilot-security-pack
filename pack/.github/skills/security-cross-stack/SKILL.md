@@ -19,3 +19,5 @@ Trace the real security path instead of reviewing UI and API independently:
 10. Search for sibling endpoints/variants with the same pattern after confirming a vulnerability.
 
 Classify findings as Confirmed, Probable, Needs Investigation, or False Positive. A client-side route guard or hidden UI element is never sufficient evidence of authorization.
+
+For a structured evidence rubric, high-value cross-stack questions, variant search, and remediation/verification criteria, load [trace-rubric.md](./references/trace-rubric.md) only when the review spans both browser and API layers.

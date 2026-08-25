@@ -19,8 +19,11 @@ try {
     & $installer -TargetRepo $dotnetRepo
 
     Assert-True (Test-Path (Join-Path $dotnetRepo '.github/skills/security-dotnet/SKILL.md')) '.NET-only repo did not receive .NET skill'
+    Assert-True (Test-Path (Join-Path $dotnetRepo '.github/skills/security-dotnet/references/authorization-checklist.md')) '.NET-only repo did not receive .NET skill reference'
     Assert-True (-not (Test-Path (Join-Path $dotnetRepo '.github/skills/security-angular/SKILL.md'))) '.NET-only repo incorrectly received Angular skill'
+    Assert-True (-not (Test-Path (Join-Path $dotnetRepo '.github/skills/security-angular/references/browser-security-checklist.md'))) '.NET-only repo incorrectly received Angular skill reference'
     Assert-True (-not (Test-Path (Join-Path $dotnetRepo '.github/skills/security-cross-stack/SKILL.md'))) '.NET-only repo incorrectly received cross-stack skill'
+    Assert-True (-not (Test-Path (Join-Path $dotnetRepo '.github/skills/security-cross-stack/references/trace-rubric.md'))) '.NET-only repo incorrectly received cross-stack reference'
     Assert-True (-not (Test-Path (Join-Path $dotnetRepo '.security/scripts/scan-yarn.ps1'))) '.NET-only repo incorrectly received Yarn scanner'
     $dotnetManifest = Get-Content (Join-Path $dotnetRepo '.security/copilot-pack.yml') -Raw
     Assert-True ($dotnetManifest -match 'dotnet:\s*true') '.NET-only manifest did not record dotnet=true'
@@ -37,8 +40,11 @@ try {
     & $installer -TargetRepo $angularRepo
 
     Assert-True (Test-Path (Join-Path $angularRepo '.github/skills/security-angular/SKILL.md')) 'Angular-only repo did not receive Angular skill'
+    Assert-True (Test-Path (Join-Path $angularRepo '.github/skills/security-angular/references/browser-security-checklist.md')) 'Angular-only repo did not receive Angular skill reference'
     Assert-True (-not (Test-Path (Join-Path $angularRepo '.github/skills/security-dotnet/SKILL.md'))) 'Angular-only repo incorrectly received .NET skill'
+    Assert-True (-not (Test-Path (Join-Path $angularRepo '.github/skills/security-dotnet/references/authorization-checklist.md'))) 'Angular-only repo incorrectly received .NET skill reference'
     Assert-True (-not (Test-Path (Join-Path $angularRepo '.github/skills/security-cross-stack/SKILL.md'))) 'Angular-only repo incorrectly received cross-stack skill'
+    Assert-True (-not (Test-Path (Join-Path $angularRepo '.github/skills/security-cross-stack/references/trace-rubric.md'))) 'Angular-only repo incorrectly received cross-stack reference'
     Assert-True (-not (Test-Path (Join-Path $angularRepo '.security/scripts/scan-nuget.ps1'))) 'Angular-only repo incorrectly received NuGet scanner'
     $angularManifest = Get-Content (Join-Path $angularRepo '.security/copilot-pack.yml') -Raw
     Assert-True ($angularManifest -match 'dotnet:\s*false') 'Angular-only manifest did not record dotnet=false'

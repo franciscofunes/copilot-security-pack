@@ -8,7 +8,22 @@ The project follows semantic versioning once stable releases begin.
 
 ### Added
 
-- `v0.3.0-alpha.1` fixture-pilot development line.
+- `v0.4.0-alpha.1` architecture/documentation hardening line.
+- MIT open-source license.
+- Mermaid architecture catalog covering distribution, developer review, deterministic evidence, cross-stack authorization, dependency baselines, upgrade ownership, and the blind VS Code pilot.
+- Open-source design/reference policy documenting which patterns are adopted from public Copilot/agent projects and which incompatible distribution mechanisms remain excluded.
+- Progressive-disclosure `references/` for .NET, Angular/Yarn, and cross-stack security skills.
+- Installer manifest support for distributing skill reference files with the applicable stack feature.
+
+### Changed
+
+- README now uses architecture diagrams for the main distribution, review, and upgrade-safety concepts.
+- Skill bodies remain compact while detailed review checklists load only when relevant.
+
+## [0.3.0-alpha.1] - 2026-08-25
+
+### Added
+
 - Intentionally vulnerable .NET + Angular/Yarn monorepo fixture for repeatable security evaluation.
 - Four source-review canaries covering tenant isolation, frontend-only authorization, privilege-changing mass assignment, and SSRF.
 - External machine-readable evaluation rubric kept outside the pilot application workspace.
@@ -22,12 +37,6 @@ The project follows semantic versioning once stable releases begin.
 - Yarn discovery no longer leaks a failed native `yarn --version` exit code into an otherwise successful security run.
 - Modern Yarn scanning uses `corepack yarn` when Corepack is available, avoiding conflicts with stale globally installed Yarn 1.
 - Dependency-free Yarn workspaces skip unnecessary install/audit execution.
-
-### Remaining before v0.3.0-alpha.1 promotion
-
-- Complete the blind VS Code GitHub Copilot extension pilot and record its score/results.
-- Apply only evidence-driven prompt/instruction/skill changes for measured misses or false positives.
-- Re-run the same blind fixture after any Copilot customization change.
 
 ## [0.2.0-alpha.1] - 2026-08-25
 
@@ -53,7 +62,7 @@ The project follows semantic versioning once stable releases begin.
 
 ### Known limitations
 
-- Real VS Code Copilot behavior still requires a blind fixture/VDI pilot before a stable v1 release.
+- Real VS Code Copilot behavior still requires representative blind fixture/VDI pilots before a stable v1 release.
 - Source-level authorization/business-logic findings still depend on Copilot reasoning rather than deterministic scanner output alone.
 
 ## [0.1.0-alpha.1] - 2026-08-24

@@ -42,8 +42,15 @@ $servicePath = Join-Path $destinationFull 'web/src/app/api.service.ts'
 Add-Content -Path $apiPath -Value "`n// pilot-review-change"
 Add-Content -Path $servicePath -Value "`n// pilot-review-change"
 
+# Block only the actual evaluation answer-key artifacts. Security skills may
+# legitimately contain words such as "rubric" in their own reference files.
+$forbiddenFiles = @(
+    'evaluation.json',
+    'vulnerable-dotnet-angular-monorepo.json',
+    'RUN_TEMPLATE.md'
+)
 $answerKeyLeak = @(Get-ChildItem -Path $destinationFull -Recurse -File -ErrorAction SilentlyContinue | Where-Object {
-    $_.Name -match '(evaluation|rubric|answer)' -or $_.FullName -match '[\\/]evaluations[\\/]'
+    $forbiddenFiles -contains $_.Name -or $_.FullName -match '[\\/]evaluations[\\/]'
 })
 if ($answerKeyLeak.Count -gt 0) {
     throw 'Blind pilot setup failed: evaluation material is present inside the application workspace.'
