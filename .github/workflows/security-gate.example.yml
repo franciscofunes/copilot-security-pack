@@ -1,0 +1,38 @@
+name: Security Gate
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  security:
+    runs-on: windows-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run changed security scan
+        if: github.event_name == 'pull_request'
+        shell: pwsh
+        run: ./.security/run-security.ps1 -Mode Changes
+
+      - name: Run full security scan
+        if: github.event_name != 'pull_request'
+        shell: pwsh
+        run: ./.security/run-security.ps1 -Mode Full
+
+      - name: Upload normalized findings
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-findings
+          path: .security/output/
+
+# Template only. Before installation, adapt SDK/Node/Yarn setup, package feeds,
+# action pinning, and branch names to the target repository's existing CI policy.

@@ -1,0 +1,35 @@
+schema: 1
+scope:
+  platform: dotnet-angular-monorepo
+  defaultMode: Changes
+
+dependencies:
+  nuget:
+    includeDirect: true
+    includeTransitive: true
+  yarn:
+    includeDirect: true
+    includeTransitive: true
+    includeWorkspaces: true
+
+gating:
+  existingFindings:
+    strategy: baseline
+  newFindings:
+    critical: fail
+    high: fail
+    moderate: review
+    low: report
+    unknown: review
+
+output:
+  maxChatFindings: 5
+  includeFullLogsInChat: false
+  normalizedJson: .security/output/findings-summary.json
+  markdownReport: .security/output/security-report.md
+
+safety:
+  allowProductionActiveScan: false
+  allowAutomaticMajorPackageUpgrade: false
+  allowAutomaticSuppression: false
+  allowMcp: false
