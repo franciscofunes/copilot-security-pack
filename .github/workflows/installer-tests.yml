@@ -26,3 +26,7 @@ jobs:
       - name: Run installer smoke test
         shell: pwsh
         run: ./tests/installer-smoke.ps1
+
+      - name: Run installer selection tests
+        shell: pwsh
+        run: ./tests/installer-selection.ps1
