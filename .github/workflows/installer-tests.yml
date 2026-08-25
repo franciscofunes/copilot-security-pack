@@ -6,6 +6,7 @@ on:
       - 'installer/**'
       - 'tests/**'
       - 'fixtures/**'
+      - 'evaluations/**'
       - 'pack/**'
       - '.github/agents/**'
       - '.github/prompts/**'
