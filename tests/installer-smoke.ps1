@@ -5,8 +5,15 @@ function Assert-True([bool]$Condition, [string]$Message) {
     if (-not $Condition) { throw "ASSERTION FAILED: $Message" }
 }
 
+function Assert-Throws([scriptblock]$Action, [string]$Message) {
+    $threw = $false
+    try { & $Action } catch { $threw = $true }
+    if (-not $threw) { throw "ASSERTION FAILED: $Message" }
+}
+
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $installer = Join-Path $repoRoot 'installer/install.ps1'
+$uninstaller = Join-Path $repoRoot 'installer/uninstall.ps1'
 $tempRoot = Join-Path ([System.IO.Path]::GetTempPath()) ('copilot-security-pack-test-' + [guid]::NewGuid().ToString('N'))
 
 try {
@@ -32,6 +39,7 @@ try {
     Assert-True (Test-Path (Join-Path $tempRoot '.github/instructions/security-pack-global.instructions.md')) 'fallback global instructions were not installed'
     Assert-True (Test-Path (Join-Path $tempRoot '.security/run-security.ps1')) 'security dispatcher was not installed'
     Assert-True (Test-Path (Join-Path $tempRoot '.security/security-policy.yml')) 'default security policy was not installed'
+    Assert-True (Test-Path (Join-Path $tempRoot '.security/copilot-pack-state.json')) 'managed-file state was not written'
 
     $afterInstructions = Get-Content $existingInstructions -Raw
     Assert-True ($afterInstructions -eq $sentinel) 'existing copilot-instructions.md was modified'
@@ -50,6 +58,19 @@ try {
     $afterHash = (Get-FileHash -Algorithm SHA256 $agentPath).Hash
     Assert-True ($beforeHash -eq $afterHash) 'idempotent reinstall changed an unchanged managed file'
     Assert-True ((Get-Content $existingInstructions -Raw) -eq $sentinel) 'idempotent reinstall modified existing application instructions'
+
+    # Local edits to pack-managed files must block reconciliation by default.
+    Add-Content -Path $agentPath -Value "`n# local customization"
+    Assert-Throws { & $installer -TargetRepo $tempRoot } 'installer did not reject a locally modified managed file'
+    Assert-True ((Get-Content $agentPath -Raw) -match 'local customization') 'conflict handling overwrote the locally modified file'
+
+    # Safe uninstall preserves locally modified managed files and repository-owned files.
+    & $uninstaller -TargetRepo $tempRoot
+    Assert-True (Test-Path $agentPath) 'safe uninstall removed a locally modified managed file'
+    Assert-True (Test-Path $existingInstructions) 'safe uninstall removed pre-existing repository instructions'
+    Assert-True (Test-Path (Join-Path $tempRoot '.security/security-policy.yml')) 'safe uninstall removed repository-owned security policy'
+    Assert-True (-not (Test-Path (Join-Path $tempRoot '.security/copilot-pack-state.json'))) 'uninstall did not remove installation state'
+    Assert-True (-not (Test-Path (Join-Path $tempRoot '.security/copilot-pack.yml'))) 'uninstall did not remove installation manifest'
 
     Write-Host 'Installer smoke test passed.'
 }
