@@ -1,0 +1,13 @@
+schema: 1
+packVersion: 1.0.0
+platform: dotnet-angular-monorepo
+features:
+  repositoryInstructions: true
+  pathInstructions: true
+  promptFiles: true
+  customAgent: true
+  agentSkills: true
+  dependencyScanning: true
+  changedFileScanning: true
+  crossStackAuthorizationReview: true
+  mcp: false
