@@ -29,9 +29,12 @@ function Get-RelativePath([string]$Root, [string]$Path) {
 }
 
 $targetRoot = (Resolve-Path $TargetRepo).Path
-$packRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
+$sourceRepoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
+$packRootPath = Join-Path $sourceRepoRoot 'pack'
+if (-not (Test-Path $packRootPath)) { throw "Canonical pack payload not found: $packRootPath" }
+$packRoot = (Resolve-Path $packRootPath).Path
 $manifestPath = Join-Path $PSScriptRoot 'pack-manifest.json'
-$versionPath = Join-Path $packRoot 'VERSION'
+$versionPath = Join-Path $sourceRepoRoot 'VERSION'
 $statePath = Join-Path $targetRoot '.security/copilot-pack-state.json'
 
 if (-not (Test-Path (Join-Path $targetRoot '.git'))) {
@@ -68,6 +71,7 @@ $features = @{
 
 Write-Step "Target: $targetRoot"
 Write-Step "Pack version: $version"
+Write-Step "Payload: $packRoot"
 Write-Step "Detected .NET: $($features.dotnet)"
 Write-Step "Detected Angular/Yarn: $($features.angular)"
 Write-Step "Detected cross-stack monorepo: $($features.crossStack)"
@@ -141,6 +145,7 @@ foreach ($item in @($manifest.createIfMissing)) {
     $destination = Join-Path $targetRoot ([string]$item.target)
     $relative = [string]$item.target
 
+    if (-not (Test-Path $source)) { throw "Pack source file not found: $source" }
     if (Test-Path $destination) {
         $preserved.Add($relative) | Out-Null
         continue
@@ -153,7 +158,6 @@ foreach ($item in @($manifest.createIfMissing)) {
     $installed.Add($relative) | Out-Null
 }
 
-# Repository-wide instructions are repository-owned when they already exist.
 $sourceGlobalInstructions = Join-Path $packRoot '.github/copilot-instructions.md'
 $targetGlobalInstructions = Join-Path $targetRoot '.github/copilot-instructions.md'
 if (-not (Test-Path $targetGlobalInstructions)) {
@@ -162,7 +166,6 @@ if (-not (Test-Path $targetGlobalInstructions)) {
     $globalRelative = '.github/copilot-instructions.md'
     $globalPreviousHash = if ($previousHashes.ContainsKey($globalRelative)) { $previousHashes[$globalRelative] } else { $null }
     if ($globalPreviousHash) {
-        # The pack created this file on an earlier install, so it remains managed.
         Install-ManagedContent -Source $sourceGlobalInstructions -Destination $targetGlobalInstructions -Feature 'core' -LogicalSource '.github/copilot-instructions.md' -WhatIf:$WhatIf -ForceManagedOverwrite:$ForceManagedOverwrite
     } else {
         $fallbackInstruction = Join-Path $targetRoot '.github/instructions/security-pack-global.instructions.md'
@@ -186,7 +189,6 @@ if ($conflicts.Count -gt 0) {
     throw "Refusing to overwrite $($conflicts.Count) existing or locally modified managed file(s). Review them or re-run with -ForceManagedOverwrite after explicit approval."
 }
 
-# Generated installation metadata contains target-specific detection results.
 $targetManifest = Join-Path $targetRoot '.security/copilot-pack.yml'
 $manifestText = @"
 schema: 1
@@ -210,6 +212,7 @@ if (-not $WhatIf) {
         packVersion = $version
         installedAtUtc = (Get-Date).ToUniversalTime().ToString('o')
         host = 'vscode-copilot-extension'
+        payloadRoot = 'pack'
         managedFiles = @($managedState | Sort-Object path)
     }
     $state | ConvertTo-Json -Depth 8 | Set-Content -Path $statePath
@@ -229,5 +232,5 @@ foreach ($item in $skipped) { Write-Host "    - $item" }
 if ($WhatIf) {
     Write-Step 'WhatIf mode: no target files were modified.'
 } else {
-    Write-Step "Installed Copilot Security Pack $version. Managed-file checksums recorded in .security/copilot-pack-state.json. Review the target repository Git diff before committing."
+    Write-Step "Installed Copilot Security Pack $version from canonical pack/ payload. Managed-file checksums recorded in .security/copilot-pack-state.json. Review the target repository Git diff before committing."
 }
