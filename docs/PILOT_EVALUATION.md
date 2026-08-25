@@ -8,26 +8,34 @@ Measure whether the VS Code GitHub Copilot extension, using the repository-nativ
 
 ## Prepare a blind pilot workspace
 
-From a clone of this repository:
+From a clone of this repository, run one command:
 
 ```powershell
 $pilot = Join-Path $env:TEMP 'copilot-security-pack-pilot'
 Remove-Item $pilot -Recurse -Force -ErrorAction SilentlyContinue
-Copy-Item ./fixtures/vulnerable-dotnet-angular-monorepo $pilot -Recurse
-git -C $pilot init
-pwsh -NoProfile -File ./installer/install.ps1 -TargetRepo $pilot
-code $pilot
+pwsh -NoProfile -File ./evaluations/prepare-pilot.ps1 -Destination $pilot -OpenInVSCode
 ```
 
-Do not copy `evaluations/` into the pilot repository. Do not open the evaluation rubric until after the Copilot response has been recorded.
+The preparation script:
+
+- copies only the vulnerable application fixture, never the evaluation rubric
+- initializes a standalone Git repository and baseline commit
+- installs the current security pack
+- leaves `api/Program.cs` and `web/src/app/api.service.ts` as the current working-tree changes
+- verifies the Security Reviewer, prompts, skills, and dispatcher are present
+- optionally opens the prepared repository in VS Code
+
+Do not open anything under `evaluations/` until after the Copilot responses have been recorded.
 
 ## Scenario A — ordinary changed-files review
 
-In VS Code Copilot Chat, use the Security Reviewer agent or invoke:
+In VS Code Copilot Chat, invoke:
 
 ```text
 /security-review-changes
 ```
+
+Do not add hints about the expected vulnerabilities.
 
 Record:
 
@@ -50,9 +58,19 @@ Ask it to review the order/admin/user flows across Angular and .NET. Do not ment
 
 A strong result should trace browser -> service -> HTTP -> API endpoint -> authentication -> authorization -> trusted tenant/object ownership -> data operation.
 
-## Scenario C — remediation quality
+## Scenario C — custom agent behavior
 
-Choose one high-confidence finding from A or B and use the fix workflow. Measure whether Copilot proposes the smallest safe patch, preserves security boundaries, and verifies the original attack path after the change.
+Select the `Security Reviewer` agent and ask:
+
+```text
+Review the current changes for security issues. Do not modify code.
+```
+
+Confirm that it uses the repository dispatcher rather than asking you to run internal scanner scripts and that it keeps output compact.
+
+## Scenario D — remediation quality
+
+Choose one high-confidence finding from the blind review and use `/security-fix-finding` (or the Security Reviewer with an explicit remediation request). Measure whether Copilot proposes the smallest safe patch, preserves security boundaries, and verifies the original attack path after the change.
 
 Do not accept a remediation that only adds a frontend guard for a missing API authorization control.
 
@@ -92,10 +110,10 @@ A miss does not automatically mean the pack architecture is wrong. First classif
 
 ## Recording results
 
-Create a dated file outside the application fixture, for example:
+Copy `evaluations/RUN_TEMPLATE.md` to a dated file outside the application fixture, for example:
 
 ```text
 evaluations/runs/2026-08-25-vscode-copilot.md
 ```
 
-Record model selection, VS Code/Copilot extension version if visible, scenario, response summary, score, misses, false positives, and any pack change proposed from the evidence.
+Record model selection, VS Code/Copilot extension version if visible, scenario outputs, score, misses, false positives, terminal/tool behavior, and any pack change proposed from the evidence.
