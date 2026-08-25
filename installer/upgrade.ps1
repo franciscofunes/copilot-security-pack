@@ -2,6 +2,7 @@ param(
     [Parameter(Mandatory)]
     [string]$TargetRepo,
     [switch]$AllowDowngrade,
+    [switch]$ForceManagedOverwrite,
     [switch]$WhatIf
 )
 
@@ -11,10 +12,14 @@ $ErrorActionPreference = 'Stop'
 $targetRoot = (Resolve-Path $TargetRepo).Path
 $packRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $targetManifest = Join-Path $targetRoot '.security/copilot-pack.yml'
+$statePath = Join-Path $targetRoot '.security/copilot-pack-state.json'
 $versionPath = Join-Path $packRoot 'VERSION'
 
 if (-not (Test-Path $targetManifest)) {
     throw "Copilot Security Pack is not installed in '$targetRoot'. Use installer/install.ps1 for the first installation."
+}
+if (-not (Test-Path $statePath)) {
+    throw "Managed-file state is missing: $statePath. Upgrade cannot safely determine local modifications. Reinstall or reconcile explicitly before upgrading."
 }
 if (-not (Test-Path $versionPath)) { throw "VERSION file not found: $versionPath" }
 
@@ -47,7 +52,10 @@ if ($currentVersionText -eq $targetVersionText) {
     Write-Host '[copilot-security-pack] Versions match. Running idempotent reconciliation of pack-managed files.'
 }
 
-& (Join-Path $PSScriptRoot 'install.ps1') -TargetRepo $targetRoot -WhatIf:$WhatIf
+& (Join-Path $PSScriptRoot 'install.ps1') `
+    -TargetRepo $targetRoot `
+    -WhatIf:$WhatIf `
+    -ForceManagedOverwrite:$ForceManagedOverwrite
 
 if (-not $WhatIf) {
     Write-Host "[copilot-security-pack] Upgrade/reconciliation complete. Review the Git diff before committing."
