@@ -5,6 +5,7 @@ on:
     paths:
       - 'installer/**'
       - 'tests/**'
+      - 'pack/**'
       - '.github/agents/**'
       - '.github/prompts/**'
       - '.github/instructions/**'
@@ -22,6 +23,10 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Validate canonical pack manifest
+        shell: pwsh
+        run: ./tests/pack-manifest.ps1
 
       - name: Run installer smoke test
         shell: pwsh
