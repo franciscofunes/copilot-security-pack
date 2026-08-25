@@ -9,6 +9,11 @@ $ErrorActionPreference = 'Stop'
 if (-not (Test-Path $FindingsPath)) { throw "Normalized findings file not found: $FindingsPath" }
 $summary = Get-Content $FindingsPath -Raw | ConvertFrom-Json
 
+$scannerErrors = @($summary.findings | Where-Object { $_.category -eq 'scanner-error' })
+if ($scannerErrors.Count -gt 0) {
+    throw "Refusing to initialize a dependency baseline because $($scannerErrors.Count) scanner error(s) were recorded. Resolve scanner/feed/tooling failures first so the baseline cannot be created from partial evidence."
+}
+
 $baselinePath = Join-Path $RepositoryRoot '.security/dependency-baseline.json'
 if (Test-Path $baselinePath) {
     $existing = Get-Content $baselinePath -Raw | ConvertFrom-Json
