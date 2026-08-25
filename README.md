@@ -1,152 +1,161 @@
 # Copilot Security Pack
 
-Repository-native security pack for **GitHub Copilot Chat in Visual Studio Code**, targeting **.NET API + Angular/Yarn monorepos**.
+Repository-native security pack for **GitHub Copilot Chat in Visual Studio Code**, targeting **.NET API + Angular/Yarn repositories and monorepos**.
 
 ## Supported host
 
 This project is intentionally designed for the **GitHub Copilot VS Code extension**.
 
-It does not require:
+It does not require Copilot CLI, a Copilot plugin marketplace, MCP servers, or Git submodules. After installation, the application repository is self-contained.
 
-- Copilot CLI.
-- A Copilot plugin marketplace.
-- MCP servers.
-- Git submodules.
+## Architecture
 
-The application repository remains self-contained after installation.
+```text
+copilot-security-pack
+  pack/                  canonical distributable payload
+  installer/             install / upgrade / uninstall
+  tests/                 pack and normalization verification
+       |
+       v
+application repository
+  .github/
+    instructions/
+    prompts/
+    agents/
+    skills/
+  .security/
+    run-security.ps1
+    scripts/
+    security-policy.yml
+    dependency-baseline.json
+       |
+       v
+VS Code GitHub Copilot Chat + deterministic local/CI evidence
+```
 
-## What the pack contains
+Root `.github/` and `.security/` configure and test this source repository. **`pack/` is the source of truth for files distributed to application repositories.**
 
-- `.github/copilot-instructions.md` for small repository-wide rules.
-- `.github/instructions/*.instructions.md` for path-specific .NET and Angular rules.
-- `.github/prompts/*.prompt.md` for reusable Copilot Chat commands.
-- `.github/agents/*.agent.md` for the Security Reviewer custom agent.
-- `.github/skills/*/SKILL.md` for progressively loaded .NET, Angular, and cross-stack security expertise.
-- `.security/run-security.ps1` as the single deterministic automation entry point.
-- NuGet and Yarn dependency vulnerability scanning.
-- Normalized findings, policy gating, baselines, and explicit exceptions.
-- CI integration templates.
+## What the pack provides
 
-GitHub and VS Code currently discover project skills from `.github/skills/<skill-name>/SKILL.md`; the skills in this repository follow that layout.
+- Small repository-wide and path-specific Copilot security instructions.
+- A `Security Reviewer` custom agent.
+- On-demand .NET, Angular/Yarn, and cross-stack security skills.
+- Reusable prompt commands for changed-code review, dependencies, privileged flows, finding investigation/remediation, full audits, and initial baseline adoption.
+- `.security/run-security.ps1` as the single automation entry point.
+- Direct and transitive NuGet vulnerability evidence.
+- Yarn Classic and modern Yarn audit evidence.
+- Per-advisory normalized findings with stable SHA-256 fingerprints.
+- Existing-vulnerability baseline support without suppressing newly introduced risk.
+- CI policy gating that fails new high/critical findings and scanner failures.
 
 ## Developer UX
 
 Inside Copilot Chat in VS Code:
 
-- `/security-review-changes`
-- `/security-review-dependencies`
-- `/security-review-flow`
-- `/security-investigate-finding`
-- `/security-fix-finding`
-- `/security-full-audit`
+```text
+/security-review-changes
+/security-review-dependencies
+/security-review-flow
+/security-investigate-finding
+/security-fix-finding
+/security-full-audit
+/security-initialize-baseline
+```
 
-Developers should not need to remember individual scanner commands. The Security Reviewer runs the repository dispatcher through VS Code's terminal tooling.
-
-Stable automation entry point:
+Developers should not need to learn individual scanner commands. Copilot runs the stable dispatcher itself through VS Code's terminal tooling:
 
 ```powershell
 pwsh -NoProfile -File .security/run-security.ps1 -Mode Changes
 ```
 
-## Security model
+Detailed scanner evidence remains under `.security/output`; chat responses should stay compact and evidence-based.
 
-```text
-Developer
-   |
-   v
-VS Code Copilot Chat
-prompts + Security Reviewer Agent
-   |
-   +--> on-demand .NET skill
-   +--> on-demand Angular skill
-   +--> on-demand cross-stack skill
-   |
-   v
-.security/run-security.ps1
-   |
-   +--> NuGet / .NET checks
-   +--> Yarn / Angular checks
-   +--> optional approved scanners
-   |
-   v
-Normalized findings
-   |
-   +--> Copilot triage / authorization reasoning / minimal remediation
-   +--> CI policy gate
+## Install
+
+Clone or check out the desired version of this repository, then preview the target change:
+
+```powershell
+pwsh -NoProfile -File ./installer/install.ps1 `
+  -TargetRepo C:\src\my-application `
+  -WhatIf
 ```
 
-For privileged flows, cross-stack review traces Angular component -> service -> HTTP request -> .NET endpoint -> authentication -> authorization -> tenant/object ownership -> database query -> response DTO.
+Install:
 
-A UI route guard is never treated as a replacement for API authorization.
-
-## Distribution model
-
-Do not manually copy/paste files into every application repository.
-
-The intended lifecycle is:
-
-```text
-Canonical copilot-security-pack repository
-             |
-             | semantic-versioned release
-             v
-       install.ps1 / upgrade.ps1
-             |
-             v
-     Application repository
-             |
-             v
-VS Code Copilot automatically discovers
-instructions + prompts + agents + skills
+```powershell
+pwsh -NoProfile -File ./installer/install.ps1 `
+  -TargetRepo C:\src\my-application
 ```
 
-After installation, developers only clone the application repository. They do not need the canonical security-pack repository during normal development.
+The installer detects .NET, Angular/Yarn, and combined repositories, installs only applicable payload files, preserves repository-owned policy/baseline/exception files, and does not blindly overwrite an existing `.github/copilot-instructions.md`.
 
-See **[Distribution and Release Guide](docs/DISTRIBUTION_AND_RELEASES.md)**.
+## Upgrade safety
 
-## Current feature-branch structure
-
-```text
-.github/
-  agents/
-    security-reviewer.agent.md
-  instructions/
-    security-angular.instructions.md
-    security-dotnet.instructions.md
-  prompts/
-    security-review-changes.prompt.md
-    security-review-dependencies.prompt.md
-    security-review-flow.prompt.md
-    security-investigate-finding.prompt.md
-    security-fix-finding.prompt.md
-    security-full-audit.prompt.md
-  skills/
-    security-angular/
-      SKILL.md
-    security-cross-stack/
-      SKILL.md
-    security-dotnet/
-      SKILL.md
-
-.security/
-  run-security.ps1
-  scripts/
-  security-policy.yml
-  dependency-baseline.json
-  dependency-exceptions.yml
+```powershell
+pwsh -NoProfile -File ./installer/upgrade.ps1 `
+  -TargetRepo C:\src\my-application
 ```
 
-If these files are not visible on GitHub, select the `feat/security-pack-v1` branch or open PR #1. They are not yet on `main` while the implementation is under review.
+Managed files are tracked by SHA-256. If an installed managed file was edited locally, upgrade stops instead of overwriting it. `-ForceManagedOverwrite` exists only for an explicitly reviewed conflict.
 
-## Pilot flow
+Uninstall removes unchanged pack-managed files while preserving locally modified and repository-owned files:
 
-1. Harden the pack and installer in this repository.
-2. Validate with intentionally vulnerable fixture projects.
-3. Install a release candidate into one representative .NET + Angular/Yarn monorepo.
-4. Validate VS Code Copilot Chat behavior, terminal approvals, SDK/Yarn compatibility, private feeds, false positives, and token/context usage.
-5. Merge and tag the first stable release.
-6. Roll out through `install.ps1`; later updates use `upgrade.ps1` and reviewable Git diffs.
+```powershell
+pwsh -NoProfile -File ./installer/uninstall.ps1 `
+  -TargetRepo C:\src\my-application
+```
 
-## Current status
+See [installer/README.md](installer/README.md) and [docs/DISTRIBUTION_AND_RELEASES.md](docs/DISTRIBUTION_AND_RELEASES.md).
 
-**v1 development / pilot stage.** A passing scan is not proof that an application is vulnerability-free.
+## Dependency adoption model
+
+Normal dependency review:
+
+```powershell
+pwsh -NoProfile -File .security/run-security.ps1 -Mode Dependencies
+```
+
+For a repository adopting the pack for the first time, existing dependency debt can be established once through the `/security-initialize-baseline` prompt. Copilot first shows exactly what would be grandfathered and asks for explicit approval. The underlying confirmed operation is:
+
+```powershell
+pwsh -NoProfile -File .security/run-security.ps1 `
+  -Mode InitializeBaseline `
+  -ConfirmBaseline
+```
+
+Safety rules:
+
+- Scanner errors cannot be baselined.
+- A non-empty baseline cannot be replaced by the initialization workflow.
+- New vulnerabilities discovered after initialization remain `new`.
+- New high/critical findings remain blocking.
+- Baseline is legacy-debt classification, not proof that a vulnerability is acceptable.
+
+## Security review model
+
+```text
+changed files / dependency manifests
+        |
+        v
+deterministic scanners
+        |
+        v
+normalized findings + fingerprints
+        |
+        v
+Copilot validates exploitability / traces cross-stack boundaries
+        |
+        +--> compact findings
+        +--> minimal remediation when requested
+        +--> focused verification
+```
+
+For privileged flows, cross-stack review traces Angular component -> service -> HTTP request -> .NET endpoint -> authentication -> authorization -> tenant/object ownership -> database query -> response DTO. UI guards are never treated as API authorization.
+
+## Release maturity
+
+- `v0.1.0-alpha.1`: architecture preview.
+- `v0.2.0-alpha.1`: versioned installer, canonical payload, dependency normalization, fingerprints, and guarded baseline workflow.
+- Stable `v1.0.0`: only after representative real-repository/VDI validation and additional hardening.
+
+A passing scan is evidence from the checks that ran; it is never proof that an application is vulnerability-free.

@@ -1,0 +1,18 @@
+param([Parameter(Mandatory)][string]$RepositoryRoot,[Parameter(Mandatory)][string]$FindingsPath)
+Set-StrictMode -Version Latest
+$ErrorActionPreference = 'Stop'
+if (-not (Test-Path $FindingsPath)) { throw "Findings file not found: $FindingsPath" }
+$summary = Get-Content $FindingsPath -Raw | ConvertFrom-Json
+
+$scannerErrors = @($summary.findings | Where-Object { $_.category -eq 'scanner-error' })
+if ($scannerErrors.Count -gt 0) {
+    Write-Error "Security policy failed: $($scannerErrors.Count) deterministic scanner error(s). A failed scan cannot be treated as a clean result."
+    exit 3
+}
+
+$blocking = @($summary.findings | Where-Object { $_.status -eq 'new' -and $_.severity -in @('critical','high') })
+if ($blocking.Count -gt 0) {
+    Write-Error "Security policy failed: $($blocking.Count) new high/critical finding(s)."
+    exit 2
+}
+Write-Host "Security policy passed. Findings: $(@($summary.findings).Count)"

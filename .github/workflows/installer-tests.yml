@@ -1,0 +1,45 @@
+name: Installer Tests
+
+on:
+  pull_request:
+    paths:
+      - 'installer/**'
+      - 'tests/**'
+      - 'pack/**'
+      - '.github/agents/**'
+      - '.github/prompts/**'
+      - '.github/instructions/**'
+      - '.github/skills/**'
+      - '.security/**'
+      - 'VERSION'
+      - '.github/workflows/installer-tests.yml'
+  workflow_dispatch:
+
+jobs:
+  smoke:
+    runs-on: windows-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate canonical pack manifest
+        shell: pwsh
+        run: ./tests/pack-manifest.ps1
+
+      - name: Run installer smoke test
+        shell: pwsh
+        run: ./tests/installer-smoke.ps1
+
+      - name: Run installer selection tests
+        shell: pwsh
+        run: ./tests/installer-selection.ps1
+
+      - name: Run dependency normalization tests
+        shell: pwsh
+        run: ./tests/dependency-normalization.ps1
+
+      - name: Run baseline initialization tests
+        shell: pwsh
+        run: ./tests/baseline-initialization.ps1
