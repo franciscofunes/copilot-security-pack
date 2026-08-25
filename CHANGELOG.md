@@ -13,7 +13,21 @@ The project follows semantic versioning once stable releases begin.
 - Four source-review canaries covering tenant isolation, frontend-only authorization, privilege-changing mass assignment, and SSRF.
 - External machine-readable evaluation rubric kept outside the pilot application workspace.
 - Blind VS Code Copilot pilot protocol with a 20-point scoring rubric.
-- CI validation that the fixture compiles, preserves expected canaries, and receives all applicable pack components.
+- `evaluations/prepare-pilot.ps1` for one-command blind workspace setup, pack installation, Git baseline creation, and changed-file preparation.
+- Reusable pilot result template under `evaluations/RUN_TEMPLATE.md`.
+- CI validation that the fixture compiles, preserves expected canaries, excludes the answer key, installs all applicable pack components, and leaves the intended API/UI files as current changes.
+
+### Fixed
+
+- Yarn discovery no longer leaks a failed native `yarn --version` exit code into an otherwise successful security run.
+- Modern Yarn scanning uses `corepack yarn` when Corepack is available, avoiding conflicts with stale globally installed Yarn 1.
+- Dependency-free Yarn workspaces skip unnecessary install/audit execution.
+
+### Remaining before v0.3.0-alpha.1 promotion
+
+- Complete the blind VS Code GitHub Copilot extension pilot and record its score/results.
+- Apply only evidence-driven prompt/instruction/skill changes for measured misses or false positives.
+- Re-run the same blind fixture after any Copilot customization change.
 
 ## [0.2.0-alpha.1] - 2026-08-25
 
