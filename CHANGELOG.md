@@ -6,18 +6,23 @@ The project follows semantic versioning once stable releases begin.
 
 ## [Unreleased]
 
+### Added
+
+- Versioned, non-destructive installer development for v0.2.0.
+- `installer/install.ps1` with .NET/Angular/Yarn feature detection and `-WhatIf` support.
+- `installer/upgrade.ps1` with installed-version checks and downgrade protection.
+- Installer ownership model that preserves repository-owned security policy, baselines, exceptions, and existing `copilot-instructions.md`.
+- Target `.security/copilot-pack.yml` installation metadata.
+- Installer idempotency smoke test and GitHub Actions workflow.
+
 ### Planned
 
-- Versioned `install.ps1` and `upgrade.ps1` flows.
-- Repository fixture/evaluation tests.
-- Hardened NuGet and Yarn finding normalization.
-- Stable vulnerability fingerprints and baseline comparison.
-- Optional approved scanner adapters.
-- Pilot validation against a representative .NET + Angular/Yarn monorepo.
+- Managed-file checksum tracking and local-edit conflict detection.
+- Safe uninstall/rollback behavior.
+- .NET-only and Angular-only installation fixtures.
+- Dedicated `pack/` source layout after the installer contract stabilizes.
 
 ## [0.1.0-alpha.1] - 2026-08-24
-
-First architecture preview for VS Code GitHub Copilot Chat.
 
 ### Added
 
@@ -25,23 +30,31 @@ First architecture preview for VS Code GitHub Copilot Chat.
 - Security Reviewer custom agent.
 - .NET, Angular/Yarn, and cross-stack security skills.
 - Reusable security prompt files.
-- Path-specific Copilot security instructions.
 - Single PowerShell security dispatcher.
-- Initial NuGet direct/transitive and Yarn vulnerability scanning.
-- Changed-file security review with PR-aware merge-base comparison.
+- Initial NuGet and Yarn vulnerability scanning.
 - Security policy, baseline, and exception scaffolding.
 - CI security-gate template.
-- Distribution and release guidance for VS Code Copilot extension-only usage.
-- Public design-reference guide based on mature Copilot/agent-skill repositories.
+- VS Code-only distribution and release guidance.
+- Public design-reference guide.
 
 ### Fixed
 
-- GitHub Actions PR scans no longer depend on `HEAD~1`.
-- Missing Yarn audit output no longer causes findings normalization to fail.
+- Changed-file detection now works in GitHub Actions PR checkouts and compares against the PR base merge-base.
+- Missing Yarn scanner output no longer causes normalization to fail.
 
 ### Known limitations
 
-- Installer and upgrade scripts are not implemented yet.
-- NuGet/Yarn normalized findings are still preliminary.
-- No fixture/evaluation suite yet.
-- Not yet validated against a representative production-style monorepo.
+- Installer and upgrade flow are not included in this release.
+- NuGet/Yarn finding normalization is preliminary.
+- Stable vulnerability fingerprints and baseline comparison are not yet implemented.
+- Fixture/evaluation suite is not yet implemented.
+- The pack has not yet been validated against a production-style .NET + Angular/Yarn monorepo.
+
+### Planned before v1.0.0
+
+- Hardened NuGet and Yarn finding normalization.
+- Stable vulnerability fingerprints and baseline comparison.
+- Versioned installation and upgrade flows.
+- Fixture repositories and automated pack tests.
+- Optional approved scanner adapters.
+- Pilot validation against a representative .NET + Angular/Yarn monorepo.
