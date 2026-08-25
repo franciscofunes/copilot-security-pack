@@ -1,0 +1,59 @@
+{
+  "schema": 1,
+  "fixture": "vulnerable-dotnet-angular-monorepo",
+  "purpose": "Evaluate VS Code Copilot security-review behavior against known cross-stack security canaries.",
+  "cases": [
+    {
+      "id": "SEC-001",
+      "title": "Cross-tenant object access from caller-controlled tenant identifier",
+      "severity": "high",
+      "category": "authorization",
+      "files": ["api/Program.cs", "web/src/app/api.service.ts"],
+      "expectedReasoning": [
+        "The API requires authentication but does not derive tenant identity from trusted claims.",
+        "The browser supplies tenantId and the API uses it directly in the data lookup.",
+        "Knowledge of another tenant identifier can cross the tenant boundary."
+      ],
+      "minimumRemediation": "Derive tenant identity from the authenticated principal and enforce object ownership/tenant filtering server-side."
+    },
+    {
+      "id": "SEC-002",
+      "title": "Frontend-only admin authorization",
+      "severity": "high",
+      "category": "authorization",
+      "files": ["api/Program.cs", "web/src/app/admin.guard.ts", "web/src/app/api.service.ts"],
+      "expectedReasoning": [
+        "The Angular guard reads mutable browser state.",
+        "The admin API endpoint only requires authentication and does not enforce an admin role/policy.",
+        "UI route protection cannot substitute for API authorization."
+      ],
+      "minimumRemediation": "Enforce the admin policy/role on the API endpoint and treat the UI guard only as navigation UX."
+    },
+    {
+      "id": "SEC-003",
+      "title": "Privilege-changing mass assignment",
+      "severity": "high",
+      "category": "over-posting",
+      "files": ["api/Program.cs", "web/src/app/api.service.ts"],
+      "expectedReasoning": [
+        "UserUpdateRequest contains IsAdmin.",
+        "The endpoint assigns IsAdmin directly from request data.",
+        "No privileged authorization check protects the role-changing field."
+      ],
+      "minimumRemediation": "Use a non-privileged update DTO and move role/admin changes behind a separately authorized operation."
+    },
+    {
+      "id": "SEC-004",
+      "title": "Unrestricted server-side URL fetch",
+      "severity": "high",
+      "category": "ssrf",
+      "files": ["api/Program.cs"],
+      "expectedReasoning": [
+        "An authenticated caller controls the complete destination URL.",
+        "HttpClient fetches the URL without an allow-list or address validation.",
+        "The server can be induced to request destinations the caller cannot access directly."
+      ],
+      "minimumRemediation": "Allow-list required destinations and reject loopback, link-local, private/internal and otherwise disallowed resolved addresses."
+    }
+  ]
+}
