@@ -1,0 +1,30 @@
+{
+  "schema": 1,
+  "managed": [
+    { "source": ".github/agents/security-reviewer.agent.md", "target": ".github/agents/security-reviewer.agent.md", "feature": "core" },
+    { "source": ".github/prompts/security-review-changes.prompt.md", "target": ".github/prompts/security-review-changes.prompt.md", "feature": "core" },
+    { "source": ".github/prompts/security-review-dependencies.prompt.md", "target": ".github/prompts/security-review-dependencies.prompt.md", "feature": "core" },
+    { "source": ".github/prompts/security-investigate-finding.prompt.md", "target": ".github/prompts/security-investigate-finding.prompt.md", "feature": "core" },
+    { "source": ".github/prompts/security-fix-finding.prompt.md", "target": ".github/prompts/security-fix-finding.prompt.md", "feature": "core" },
+    { "source": ".github/prompts/security-full-audit.prompt.md", "target": ".github/prompts/security-full-audit.prompt.md", "feature": "core" },
+    { "source": ".github/prompts/security-review-flow.prompt.md", "target": ".github/prompts/security-review-flow.prompt.md", "feature": "crossStack" },
+    { "source": ".github/instructions/security-dotnet.instructions.md", "target": ".github/instructions/security-dotnet.instructions.md", "feature": "dotnet" },
+    { "source": ".github/instructions/security-angular.instructions.md", "target": ".github/instructions/security-angular.instructions.md", "feature": "angular" },
+    { "source": ".github/skills/security-dotnet/SKILL.md", "target": ".github/skills/security-dotnet/SKILL.md", "feature": "dotnet" },
+    { "source": ".github/skills/security-angular/SKILL.md", "target": ".github/skills/security-angular/SKILL.md", "feature": "angular" },
+    { "source": ".github/skills/security-cross-stack/SKILL.md", "target": ".github/skills/security-cross-stack/SKILL.md", "feature": "crossStack" },
+    { "source": ".security/run-security.ps1", "target": ".security/run-security.ps1", "feature": "core" },
+    { "source": ".security/scripts/discover-repository.ps1", "target": ".security/scripts/discover-repository.ps1", "feature": "core" },
+    { "source": ".security/scripts/scan-changes.ps1", "target": ".security/scripts/scan-changes.ps1", "feature": "core" },
+    { "source": ".security/scripts/scan-nuget.ps1", "target": ".security/scripts/scan-nuget.ps1", "feature": "dotnet" },
+    { "source": ".security/scripts/scan-yarn.ps1", "target": ".security/scripts/scan-yarn.ps1", "feature": "angular" },
+    { "source": ".security/scripts/normalize-findings.ps1", "target": ".security/scripts/normalize-findings.ps1", "feature": "core" },
+    { "source": ".security/scripts/enforce-policy.ps1", "target": ".security/scripts/enforce-policy.ps1", "feature": "core" },
+    { "source": ".security/README.md", "target": ".security/README.md", "feature": "core" }
+  ],
+  "createIfMissing": [
+    { "source": ".security/security-policy.yml", "target": ".security/security-policy.yml" },
+    { "source": ".security/dependency-baseline.json", "target": ".security/dependency-baseline.json" },
+    { "source": ".security/dependency-exceptions.yml", "target": ".security/dependency-exceptions.yml" }
+  ]
+}
