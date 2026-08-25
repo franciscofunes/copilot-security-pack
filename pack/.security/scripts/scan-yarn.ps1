@@ -71,11 +71,13 @@ $output = Join-Path $outputDir 'yarn-vulnerabilities.json'
 $reports = @()
 foreach ($lock in @($Profile.angular.yarnLocks)) {
     $workspaceRoot = Split-Path $lock -Parent
+    $workspaceRelative = [System.IO.Path]::GetRelativePath($RepositoryRoot, $workspaceRoot).Replace('\\','/')
+    if ([string]::IsNullOrWhiteSpace($workspaceRelative) -or $workspaceRelative -eq '.') { $workspaceRelative = '.' }
     $yarn = Get-YarnGeneration -WorkspaceRoot $workspaceRoot
 
     if ($yarn.generation -eq 'unknown') {
         $reports += [pscustomobject]@{
-            workspaceRoot = $workspaceRoot
+            workspaceRoot = $workspaceRelative
             generation = 'unknown'
             yarnVersion = $yarn.version
             installExitCode = $null
@@ -92,7 +94,7 @@ foreach ($lock in @($Profile.angular.yarnLocks)) {
 
     if ($install.exitCode -ne 0) {
         $reports += [pscustomobject]@{
-            workspaceRoot = $workspaceRoot
+            workspaceRoot = $workspaceRelative
             generation = $yarn.generation
             yarnVersion = $yarn.version
             installExitCode = $install.exitCode
@@ -112,7 +114,7 @@ foreach ($lock in @($Profile.angular.yarnLocks)) {
 
     $audit = Invoke-CommandCapture -FileName 'yarn' -Arguments $auditArgs -WorkingDirectory $workspaceRoot
     $reports += [pscustomobject]@{
-        workspaceRoot = $workspaceRoot
+        workspaceRoot = $workspaceRelative
         generation = $yarn.generation
         yarnVersion = $yarn.version
         installExitCode = $install.exitCode
