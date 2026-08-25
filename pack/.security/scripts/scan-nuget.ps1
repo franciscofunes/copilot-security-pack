@@ -3,10 +3,14 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 function Invoke-DotnetCapture {
-    param([Parameter(Mandatory)][string[]]$Arguments)
+    param(
+        [Parameter(Mandatory)][string[]]$Arguments,
+        [Parameter(Mandatory)][string]$WorkingDirectory
+    )
 
     $psi = [System.Diagnostics.ProcessStartInfo]::new()
     $psi.FileName = 'dotnet'
+    $psi.WorkingDirectory = $WorkingDirectory
     $psi.UseShellExecute = $false
     $psi.RedirectStandardOutput = $true
     $psi.RedirectStandardError = $true
@@ -40,13 +44,14 @@ if ($targets.Count -eq 0) { $targets = @($Profile.dotnet.projects) }
 
 $reports = @()
 foreach ($target in $targets) {
+    $targetArg = [System.IO.Path]::GetRelativePath($RepositoryRoot, [string]$target).Replace('\\','/')
     $arguments = if ($major -ge 10) {
-        @('package','list',[string]$target,'--vulnerable','--include-transitive','--format','json','--output-version','1')
+        @('package','list',$targetArg,'--vulnerable','--include-transitive','--format','json','--output-version','1')
     } else {
-        @('list',[string]$target,'package','--vulnerable','--include-transitive','--format','json','--output-version','1')
+        @('list',$targetArg,'package','--vulnerable','--include-transitive','--format','json','--output-version','1')
     }
 
-    $capture = Invoke-DotnetCapture -Arguments $arguments
+    $capture = Invoke-DotnetCapture -Arguments $arguments -WorkingDirectory $RepositoryRoot
     $parsed = $null
     $parseError = $null
     if (-not [string]::IsNullOrWhiteSpace($capture.stdout)) {
@@ -57,7 +62,7 @@ foreach ($target in $targets) {
     }
 
     $reports += [pscustomobject]@{
-        target = [string]$target
+        target = $targetArg
         sdkVersion = $sdkVersion
         command = 'dotnet ' + ($arguments -join ' ')
         exitCode = $capture.exitCode
