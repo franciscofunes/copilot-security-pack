@@ -27,7 +27,9 @@ foreach ($item in @($manifest.managed) + @($manifest.createIfMissing)) {
 }
 
 $duplicates = @($declaredSources | Group-Object | Where-Object Count -gt 1)
-Assert-True ($duplicates.Count -eq 0) ("manifest contains duplicate source entries: " + (($duplicates.Name) -join ', '))
+if ($duplicates.Count -gt 0) {
+    throw "ASSERTION FAILED: manifest contains duplicate source entries: $(($duplicates | ForEach-Object Name) -join ', ')"
+}
 
 $forbidden = @(
     'pack/.github/workflows',
