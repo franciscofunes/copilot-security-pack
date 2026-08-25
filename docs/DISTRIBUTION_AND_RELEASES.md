@@ -174,7 +174,7 @@ Validate:
 - Copilot Chat UX.
 - .NET SDK compatibility.
 - Yarn generation.
-- Private package feeds.
+- Package feeds.
 - CI behavior.
 - False-positive rate.
 - Execution permissions.
@@ -309,7 +309,7 @@ Do **not** move these application-specific artifacts into the plugin:
 
 GitHub supports installing plugins directly from a GitHub repository, Git URL, or local path.
 
-Examples from the Copilot CLI plugin specification include forms such as:
+Supported plugin specifications include forms such as:
 
 ```text
 OWNER/REPO
@@ -318,11 +318,9 @@ https://github.com/owner/repo.git
 ./local-plugin
 ```
 
-This is useful while a plugin is being piloted and does not yet need a marketplace.
+The Copilot CLI uses `copilot plugin install` for direct plugin installation.
 
-The corresponding Copilot CLI workflow uses `copilot plugin install`.
-
-Direct repository installation is preferable to manually copying plugin files when the intended host supports Copilot plugins.
+Direct repository installation is appropriate while a plugin is being piloted and does not yet need marketplace discovery.
 
 ## 9. Declarative plugin installation
 
@@ -442,7 +440,7 @@ Before release:
 - Review all scripts and agent tool permissions.
 - Keep MCP disabled unless explicitly required and reviewed.
 - Never package credentials.
-- Never embed private registry secrets.
+- Never embed registry secrets.
 - Avoid runtime downloads of unpinned executables.
 - Pin external CI actions according to repository policy.
 - Validate all plugin or skill dependencies before publication.
