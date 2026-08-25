@@ -1,7 +1,8 @@
 param(
     [Parameter(Mandatory)]
     [string]$TargetRepo,
-    [switch]$WhatIf
+    [switch]$WhatIf,
+    [switch]$ForceManagedOverwrite
 )
 
 Set-StrictMode -Version Latest
@@ -18,42 +19,20 @@ function Ensure-ParentDirectory([string]$Path) {
     }
 }
 
-function Copy-ManagedFile {
-    param(
-        [Parameter(Mandatory)][string]$Source,
-        [Parameter(Mandatory)][string]$Destination,
-        [Parameter(Mandatory)][System.Collections.Generic.List[string]]$Installed,
-        [Parameter(Mandatory)][System.Collections.Generic.List[string]]$Updated,
-        [switch]$WhatIf
-    )
+function Get-Sha256([string]$Path) {
+    if (-not (Test-Path $Path)) { return $null }
+    return (Get-FileHash -Algorithm SHA256 -Path $Path).Hash.ToLowerInvariant()
+}
 
-    if (-not (Test-Path $Source)) {
-        throw "Pack source file not found: $Source"
-    }
-
-    $exists = Test-Path $Destination
-    $sourceHash = (Get-FileHash -Algorithm SHA256 -Path $Source).Hash
-    $same = $false
-    if ($exists) {
-        $destinationHash = (Get-FileHash -Algorithm SHA256 -Path $Destination).Hash
-        $same = ($sourceHash -eq $destinationHash)
-    }
-
-    if ($same) { return }
-
-    if (-not $WhatIf) {
-        Ensure-ParentDirectory $Destination
-        Copy-Item -Force -Path $Source -Destination $Destination
-    }
-
-    if ($exists) { $Updated.Add($Destination) | Out-Null }
-    else { $Installed.Add($Destination) | Out-Null }
+function Get-RelativePath([string]$Root, [string]$Path) {
+    return [System.IO.Path]::GetRelativePath($Root, $Path).Replace('\\','/')
 }
 
 $targetRoot = (Resolve-Path $TargetRepo).Path
 $packRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $manifestPath = Join-Path $PSScriptRoot 'pack-manifest.json'
 $versionPath = Join-Path $packRoot 'VERSION'
+$statePath = Join-Path $targetRoot '.security/copilot-pack-state.json'
 
 if (-not (Test-Path (Join-Path $targetRoot '.git'))) {
     throw "TargetRepo must be the root of a Git repository: $targetRoot"
@@ -63,6 +42,15 @@ if (-not (Test-Path $versionPath)) { throw "VERSION file not found: $versionPath
 
 $version = (Get-Content $versionPath -Raw).Trim()
 $manifest = Get-Content $manifestPath -Raw | ConvertFrom-Json
+
+$previousState = $null
+$previousHashes = @{}
+if (Test-Path $statePath) {
+    $previousState = Get-Content $statePath -Raw | ConvertFrom-Json
+    foreach ($entry in @($previousState.managedFiles)) {
+        $previousHashes[[string]$entry.path] = [string]$entry.sha256
+    }
+}
 
 $dotnetProjects = @(Get-ChildItem -Path $targetRoot -Recurse -File -Filter *.csproj -ErrorAction SilentlyContinue |
     Where-Object { $_.FullName -notmatch '[\\/](bin|obj|node_modules|\.git)[\\/]' })
@@ -88,6 +76,53 @@ $installed = [System.Collections.Generic.List[string]]::new()
 $updated = [System.Collections.Generic.List[string]]::new()
 $preserved = [System.Collections.Generic.List[string]]::new()
 $skipped = [System.Collections.Generic.List[string]]::new()
+$conflicts = [System.Collections.Generic.List[string]]::new()
+$managedState = [System.Collections.Generic.List[object]]::new()
+
+function Install-ManagedContent {
+    param(
+        [Parameter(Mandatory)][string]$Source,
+        [Parameter(Mandatory)][string]$Destination,
+        [Parameter(Mandatory)][string]$Feature,
+        [string]$LogicalSource,
+        [switch]$WhatIf,
+        [switch]$ForceManagedOverwrite
+    )
+
+    if (-not (Test-Path $Source)) { throw "Pack source file not found: $Source" }
+
+    $relative = Get-RelativePath $targetRoot $Destination
+    $sourceHash = Get-Sha256 $Source
+    $exists = Test-Path $Destination
+    $destinationHash = if ($exists) { Get-Sha256 $Destination } else { $null }
+    $previousHash = if ($previousHashes.ContainsKey($relative)) { $previousHashes[$relative] } else { $null }
+
+    if ($exists -and $destinationHash -eq $sourceHash) {
+        $managedState.Add([pscustomobject]@{ path=$relative; sha256=$sourceHash; feature=$Feature; source=$LogicalSource }) | Out-Null
+        return
+    }
+
+    if ($exists) {
+        $knownManaged = -not [string]::IsNullOrWhiteSpace($previousHash)
+        $locallyModified = $knownManaged -and ($destinationHash -ne $previousHash)
+        $preExistingUnknown = -not $knownManaged
+
+        if (($locallyModified -or $preExistingUnknown) -and -not $ForceManagedOverwrite) {
+            $conflicts.Add($relative) | Out-Null
+            return
+        }
+    }
+
+    if (-not $WhatIf) {
+        Ensure-ParentDirectory $Destination
+        Copy-Item -Force -Path $Source -Destination $Destination
+    }
+
+    if ($exists) { $updated.Add($relative) | Out-Null }
+    else { $installed.Add($relative) | Out-Null }
+
+    $managedState.Add([pscustomobject]@{ path=$relative; sha256=$sourceHash; feature=$Feature; source=$LogicalSource }) | Out-Null
+}
 
 foreach ($item in @($manifest.managed)) {
     $feature = [string]$item.feature
@@ -98,41 +133,60 @@ foreach ($item in @($manifest.managed)) {
 
     $source = Join-Path $packRoot ([string]$item.source)
     $destination = Join-Path $targetRoot ([string]$item.target)
-    Copy-ManagedFile -Source $source -Destination $destination -Installed $installed -Updated $updated -WhatIf:$WhatIf
+    Install-ManagedContent -Source $source -Destination $destination -Feature $feature -LogicalSource ([string]$item.source) -WhatIf:$WhatIf -ForceManagedOverwrite:$ForceManagedOverwrite
 }
 
 foreach ($item in @($manifest.createIfMissing)) {
     $source = Join-Path $packRoot ([string]$item.source)
     $destination = Join-Path $targetRoot ([string]$item.target)
+    $relative = [string]$item.target
 
     if (Test-Path $destination) {
-        $preserved.Add([string]$item.target) | Out-Null
+        $preserved.Add($relative) | Out-Null
         continue
     }
 
-    Copy-ManagedFile -Source $source -Destination $destination -Installed $installed -Updated $updated -WhatIf:$WhatIf
+    if (-not $WhatIf) {
+        Ensure-ParentDirectory $destination
+        Copy-Item -Path $source -Destination $destination
+    }
+    $installed.Add($relative) | Out-Null
 }
 
-# Repository-wide instructions are repository-owned. Never overwrite an existing file.
+# Repository-wide instructions are repository-owned when they already exist.
 $sourceGlobalInstructions = Join-Path $packRoot '.github/copilot-instructions.md'
 $targetGlobalInstructions = Join-Path $targetRoot '.github/copilot-instructions.md'
 if (-not (Test-Path $targetGlobalInstructions)) {
-    Copy-ManagedFile -Source $sourceGlobalInstructions -Destination $targetGlobalInstructions -Installed $installed -Updated $updated -WhatIf:$WhatIf
+    Install-ManagedContent -Source $sourceGlobalInstructions -Destination $targetGlobalInstructions -Feature 'core' -LogicalSource '.github/copilot-instructions.md' -WhatIf:$WhatIf -ForceManagedOverwrite:$ForceManagedOverwrite
 } else {
-    $fallbackInstruction = Join-Path $targetRoot '.github/instructions/security-pack-global.instructions.md'
-    $globalBody = Get-Content $sourceGlobalInstructions -Raw
-    $fallbackContent = "---`napplyTo: '**'`n---`n`n$globalBody"
-    $temp = Join-Path ([System.IO.Path]::GetTempPath()) ("copilot-security-pack-global-" + [guid]::NewGuid().ToString('N') + '.md')
-    try {
-        Set-Content -Path $temp -Value $fallbackContent -NoNewline
-        Copy-ManagedFile -Source $temp -Destination $fallbackInstruction -Installed $installed -Updated $updated -WhatIf:$WhatIf
-        $preserved.Add('.github/copilot-instructions.md') | Out-Null
-    } finally {
-        Remove-Item $temp -Force -ErrorAction SilentlyContinue
+    $globalRelative = '.github/copilot-instructions.md'
+    $globalPreviousHash = if ($previousHashes.ContainsKey($globalRelative)) { $previousHashes[$globalRelative] } else { $null }
+    if ($globalPreviousHash) {
+        # The pack created this file on an earlier install, so it remains managed.
+        Install-ManagedContent -Source $sourceGlobalInstructions -Destination $targetGlobalInstructions -Feature 'core' -LogicalSource '.github/copilot-instructions.md' -WhatIf:$WhatIf -ForceManagedOverwrite:$ForceManagedOverwrite
+    } else {
+        $fallbackInstruction = Join-Path $targetRoot '.github/instructions/security-pack-global.instructions.md'
+        $globalBody = Get-Content $sourceGlobalInstructions -Raw
+        $fallbackContent = "---`napplyTo: '**'`n---`n`n$globalBody"
+        $temp = Join-Path ([System.IO.Path]::GetTempPath()) ("copilot-security-pack-global-" + [guid]::NewGuid().ToString('N') + '.md')
+        try {
+            Set-Content -Path $temp -Value $fallbackContent -NoNewline
+            Install-ManagedContent -Source $temp -Destination $fallbackInstruction -Feature 'core' -LogicalSource '.github/copilot-instructions.md#fallback' -WhatIf:$WhatIf -ForceManagedOverwrite:$ForceManagedOverwrite
+            $preserved.Add($globalRelative) | Out-Null
+        } finally {
+            Remove-Item $temp -Force -ErrorAction SilentlyContinue
+        }
     }
 }
 
-# Generated installation metadata is pack-managed but contains target-specific detection results.
+if ($conflicts.Count -gt 0) {
+    Write-Host ''
+    Write-Step 'Managed-file conflicts detected; no state/version metadata will be advanced.'
+    foreach ($item in $conflicts) { Write-Host "    ! $item" }
+    throw "Refusing to overwrite $($conflicts.Count) existing or locally modified managed file(s). Review them or re-run with -ForceManagedOverwrite after explicit approval."
+}
+
+# Generated installation metadata contains target-specific detection results.
 $targetManifest = Join-Path $targetRoot '.security/copilot-pack.yml'
 $manifestText = @"
 schema: 1
@@ -146,12 +200,20 @@ installedFeatures:
   crossStackSecurity: $($features.crossStack.ToString().ToLowerInvariant())
   mcp: false
 "@
+
 if (-not $WhatIf) {
     Ensure-ParentDirectory $targetManifest
     Set-Content -Path $targetManifest -Value $manifestText -NoNewline
+
+    $state = [pscustomobject]@{
+        schema = 1
+        packVersion = $version
+        installedAtUtc = (Get-Date).ToUniversalTime().ToString('o')
+        host = 'vscode-copilot-extension'
+        managedFiles = @($managedState | Sort-Object path)
+    }
+    $state | ConvertTo-Json -Depth 8 | Set-Content -Path $statePath
 }
-if (Test-Path $targetManifest) { $updated.Add('.security/copilot-pack.yml') | Out-Null }
-else { $installed.Add('.security/copilot-pack.yml') | Out-Null }
 
 Write-Host ''
 Write-Step 'Installation summary'
@@ -167,5 +229,5 @@ foreach ($item in $skipped) { Write-Host "    - $item" }
 if ($WhatIf) {
     Write-Step 'WhatIf mode: no target files were modified.'
 } else {
-    Write-Step "Installed Copilot Security Pack $version. Review the target repository Git diff before committing."
+    Write-Step "Installed Copilot Security Pack $version. Managed-file checksums recorded in .security/copilot-pack-state.json. Review the target repository Git diff before committing."
 }
