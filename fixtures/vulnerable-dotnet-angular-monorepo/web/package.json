@@ -4,10 +4,5 @@
   "packageManager": "yarn@4.4.1",
   "scripts": {
     "build": "echo fixture-build"
-  },
-  "dependencies": {
-    "@angular/core": "18.2.0",
-    "@angular/router": "18.2.0",
-    "rxjs": "7.8.1"
   }
 }
