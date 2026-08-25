@@ -8,19 +8,29 @@ The project follows semantic versioning once stable releases begin.
 
 ### Added
 
-- Versioned, non-destructive installer development for v0.2.0.
-- `installer/install.ps1` with .NET/Angular/Yarn feature detection and `-WhatIf` support.
+- Canonical distributable payload under `pack/`, separated from this repository's development/self-test configuration.
+- Versioned, stack-aware `installer/install.ps1` for .NET-only, Angular/Yarn-only, and combined monorepos.
 - `installer/upgrade.ps1` with installed-version checks and downgrade protection.
-- Installer ownership model that preserves repository-owned security policy, baselines, exceptions, and existing `copilot-instructions.md`.
-- Target `.security/copilot-pack.yml` installation metadata.
-- Installer idempotency smoke test and GitHub Actions workflow.
+- `installer/uninstall.ps1` with preservation of locally modified files.
+- Managed-file SHA-256 state tracking and conflict detection.
+- Explicit `-ForceManagedOverwrite` override for reviewed managed-file conflicts.
+- Preservation of repository-owned security policy, baselines, exceptions, and existing `copilot-instructions.md`.
+- Target `.security/copilot-pack.yml` and `.security/copilot-pack-state.json` installation metadata.
+- `-WhatIf` installation preview.
+- Installer idempotency, stack-selection, manifest-integrity, normalization, and baseline-initialization tests.
+- Per-advisory NuGet normalization using versioned machine-readable package-list JSON.
+- Yarn Classic and modern Yarn audit normalization.
+- Stable SHA-256 dependency fingerprints and `new` versus `existing` baseline status.
+- Repository-relative scanner evidence so fingerprints remain stable across developer workspaces and CI runners.
+- Guarded first-adoption `InitializeBaseline` dispatcher mode and Copilot prompt.
+- Refusal to initialize or replace a baseline when scanner evidence is incomplete or an established baseline already exists.
+- Policy failure when deterministic scanners fail, preventing false-green security results.
 
-### Planned
+### Remaining before v0.2.0-alpha.1 promotion
 
-- Managed-file checksum tracking and local-edit conflict detection.
-- Safe uninstall/rollback behavior.
-- .NET-only and Angular-only installation fixtures.
-- Dedicated `pack/` source layout after the installer contract stabilizes.
+- Final documentation consistency pass.
+- Final release-candidate CI validation.
+- Pilot validation in a representative real .NET + Angular/Yarn repository remains recommended before a stable v1 release.
 
 ## [0.1.0-alpha.1] - 2026-08-24
 
