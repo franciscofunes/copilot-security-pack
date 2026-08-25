@@ -1,26 +1,37 @@
 # Copilot Security Pack
 
-Repository-native GitHub Copilot security pack for **.NET API + Angular/Yarn monorepos**.
+Repository-native security pack for **GitHub Copilot Chat in Visual Studio Code**, targeting **.NET API + Angular/Yarn monorepos**.
 
-## What this is
+## Supported host
 
-This repository is the canonical source/template for a security capability installed into application repositories. It is not an MCP-dependent scanner and it is not initially a marketplace plugin.
+This project is intentionally designed for the **GitHub Copilot VS Code extension**.
 
-The pack combines:
+It does not require:
 
-- GitHub Copilot repository instructions.
-- Path-specific .NET and Angular security instructions.
-- A Security Reviewer custom agent.
-- On-demand .NET, Angular, and cross-stack security skills.
-- Reusable Copilot prompt commands.
-- One PowerShell security dispatcher.
-- Deterministic NuGet/Yarn scanning and normalized findings.
-- CI security-gate templates.
-- Existing-vulnerability baselines and explicit exceptions.
+- Copilot CLI.
+- A Copilot plugin marketplace.
+- MCP servers.
+- Git submodules.
+
+The application repository remains self-contained after installation.
+
+## What the pack contains
+
+- `.github/copilot-instructions.md` for small repository-wide rules.
+- `.github/instructions/*.instructions.md` for path-specific .NET and Angular rules.
+- `.github/prompts/*.prompt.md` for reusable Copilot Chat commands.
+- `.github/agents/*.agent.md` for the Security Reviewer custom agent.
+- `.github/skills/*/SKILL.md` for progressively loaded .NET, Angular, and cross-stack security expertise.
+- `.security/run-security.ps1` as the single deterministic automation entry point.
+- NuGet and Yarn dependency vulnerability scanning.
+- Normalized findings, policy gating, baselines, and explicit exceptions.
+- CI integration templates.
+
+GitHub and VS Code currently discover project skills from `.github/skills/<skill-name>/SKILL.md`; the skills in this repository follow that layout.
 
 ## Developer UX
 
-In Copilot Chat:
+Inside Copilot Chat in VS Code:
 
 - `/security-review-changes`
 - `/security-review-dependencies`
@@ -29,7 +40,7 @@ In Copilot Chat:
 - `/security-fix-finding`
 - `/security-full-audit`
 
-Copilot runs the repository dispatcher itself. Developers do **not** need to learn individual scanner commands.
+Developers should not need to remember individual scanner commands. The Security Reviewer runs the repository dispatcher through VS Code's terminal tooling.
 
 Stable automation entry point:
 
@@ -40,84 +51,102 @@ pwsh -NoProfile -File .security/run-security.ps1 -Mode Changes
 ## Security model
 
 ```text
-Developer / CI
-     |
-     v
-Copilot prompts + Security Reviewer
-     |
-     v
+Developer
+   |
+   v
+VS Code Copilot Chat
+prompts + Security Reviewer Agent
+   |
+   +--> on-demand .NET skill
+   +--> on-demand Angular skill
+   +--> on-demand cross-stack skill
+   |
+   v
 .security/run-security.ps1
-     |
-     +--> NuGet / .NET checks
-     +--> Yarn / Angular checks
-     +--> optional approved scanners
-     |
-     v
+   |
+   +--> NuGet / .NET checks
+   +--> Yarn / Angular checks
+   +--> optional approved scanners
+   |
+   v
 Normalized findings
-     |
-     +--> Copilot triage / cross-stack reasoning / remediation
-     +--> CI policy gate
+   |
+   +--> Copilot triage / authorization reasoning / minimal remediation
+   +--> CI policy gate
 ```
 
-For privileged flows, the cross-stack skill traces Angular component -> service -> HTTP request -> .NET endpoint -> authentication -> authorization -> tenant/object ownership -> database query -> response DTO.
+For privileged flows, cross-stack review traces Angular component -> service -> HTTP request -> .NET endpoint -> authentication -> authorization -> tenant/object ownership -> database query -> response DTO.
 
 A UI route guard is never treated as a replacement for API authorization.
 
 ## Distribution model
 
-Do not manually copy/paste the pack into each application repository.
+Do not manually copy/paste files into every application repository.
 
 The intended lifecycle is:
 
 ```text
-Canonical repository
-      |
-      | semantic-versioned release
-      v
-Versioned installer
-      |
-      v
-Self-contained application repository
+Canonical copilot-security-pack repository
+             |
+             | semantic-versioned release
+             v
+       install.ps1 / upgrade.ps1
+             |
+             v
+     Application repository
+             |
+             v
+VS Code Copilot automatically discovers
+instructions + prompts + agents + skills
 ```
 
-Project-local installation remains the IDE-compatible baseline. Reusable agents and skills can additionally be packaged as a native Copilot plugin for Copilot hosts that support plugin installation.
+After installation, developers only clone the application repository. They do not need the canonical security-pack repository during normal development.
 
-See **[Distribution and Release Guide](docs/DISTRIBUTION_AND_RELEASES.md)** for:
+See **[Distribution and Release Guide](docs/DISTRIBUTION_AND_RELEASES.md)**.
 
-- Project-local versus plugin distribution.
-- Recommended installer and upgrade flow.
-- Semantic versioning and release tags.
-- Plugin repository installation.
-- Declarative plugin enablement.
-- Plugin marketplaces.
-- Skills-only distribution.
-- Rollback and supply-chain guidance.
+## Current feature-branch structure
+
+```text
+.github/
+  agents/
+    security-reviewer.agent.md
+  instructions/
+    security-angular.instructions.md
+    security-dotnet.instructions.md
+  prompts/
+    security-review-changes.prompt.md
+    security-review-dependencies.prompt.md
+    security-review-flow.prompt.md
+    security-investigate-finding.prompt.md
+    security-fix-finding.prompt.md
+    security-full-audit.prompt.md
+  skills/
+    security-angular/
+      SKILL.md
+    security-cross-stack/
+      SKILL.md
+    security-dotnet/
+      SKILL.md
+
+.security/
+  run-security.ps1
+  scripts/
+  security-policy.yml
+  dependency-baseline.json
+  dependency-exceptions.yml
+```
+
+If these files are not visible on GitHub, select the `feat/security-pack-v1` branch or open PR #1. They are not yet on `main` while the implementation is under review.
 
 ## Pilot flow
 
-1. Validate this v1 against one representative .NET + Angular/Yarn monorepo.
-2. Adapt the generated pack to the repository's real SDK, Yarn generation, CI, and package feeds.
-3. Validate noise, false positives, scanner runtime, and developer UX.
-4. Harden scanner normalization and CI gating.
-5. Build the versioned installer and upgrade flow.
-6. Tag the first stable release.
-7. Roll out through reviewable repository changes rather than manual copy/paste.
-
-See [BOOTSTRAP_PROMPT.md](BOOTSTRAP_PROMPT.md) for the one-time bootstrap workflow used during the pilot stage.
-
-## Release maturity
-
-Recommended evolution:
-
-```text
-Stage A: repository-native pilot
-Stage B: versioned install.ps1 / upgrade.ps1
-Stage C: native Copilot plugin for reusable agents + skills
-Stage D: plugin marketplace only when multiple plugins justify discovery/catalog management
-```
-
-The plugin layer is intended for supported Copilot plugin hosts. Application-specific policy, baselines, CI integration, and scanner configuration remain repository-owned.
+1. Harden the pack and installer in this repository.
+2. Validate with intentionally vulnerable fixture projects.
+3. Install a release candidate into one representative .NET + Angular/Yarn monorepo.
+4. Validate VS Code Copilot Chat behavior, terminal approvals, SDK/Yarn compatibility, private feeds, false positives, and token/context usage.
+5. Merge and tag the first stable release.
+6. Roll out through `install.ps1`; later updates use `upgrade.ps1` and reviewable Git diffs.
 
 ## Current status
 
-**v1 development / pilot stage.** Do not treat a passing scan as proof that an application is vulnerability-free.
+**v1 development / pilot stage.** A passing scan is not proof that an application is vulnerability-free.
