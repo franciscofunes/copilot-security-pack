@@ -5,36 +5,161 @@ function Assert-True([bool]$Condition, [string]$Message) {
     if (-not $Condition) { throw "ASSERTION FAILED: $Message" }
 }
 
+function New-TestRepository([string]$Path) {
+    New-Item -ItemType Directory -Force -Path $Path | Out-Null
+    git -C $Path init --quiet
+    git -C $Path config user.name 'Build Intelligence Test'
+    git -C $Path config user.email 'build-intelligence@localhost'
+    Set-Content (Join-Path $Path 'README.md') '# fixture'
+    git -C $Path add .
+    git -C $Path commit --quiet -m baseline
+    git -C $Path branch -M 'feature/build-intelligence'
+}
+
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $collector = Join-Path $repoRoot 'pack/.security/scripts/collect-build-context.ps1'
-$tempRoot = Join-Path ([System.IO.Path]::GetTempPath()) ('copilot-security-build-context-' + [guid]::NewGuid().ToString('N'))
+$root = Join-Path ([System.IO.Path]::GetTempPath()) ('copilot-security-build-context-' + [guid]::NewGuid().ToString('N'))
 
 try {
-    New-Item -ItemType Directory -Force -Path $tempRoot | Out-Null
-    git -C $tempRoot init --quiet
-    git -C $tempRoot config user.name 'Build Intelligence Test'
-    git -C $tempRoot config user.email 'build-intelligence@localhost'
-    Set-Content (Join-Path $tempRoot 'README.md') '# fixture'
-    git -C $tempRoot add .
-    git -C $tempRoot commit --quiet -m baseline
-    git -C $tempRoot branch -M 'feature/build-intelligence'
-    Add-Content (Join-Path $tempRoot 'README.md') 'working tree change'
+    # Fallback behavior when no provider CLI is available.
+    $fallbackRepo = Join-Path $root 'fallback'
+    New-TestRepository $fallbackRepo
+    Add-Content (Join-Path $fallbackRepo 'README.md') 'working tree change'
 
-    & $collector -RepositoryRoot $tempRoot -GitHubCommand '__missing_gh__' -AzureCommand '__missing_az__' -JFrogCommand '__missing_jf__' | Out-Null
+    & $collector -RepositoryRoot $fallbackRepo -GitHubCommand '__missing_gh__' -AzureCommand '__missing_az__' -JFrogCommand '__missing_jf__' | Out-Null
 
-    $path = Join-Path $tempRoot '.security/output/build-context.json'
-    Assert-True (Test-Path $path) 'collector did not create build-context.json'
-    $context = Get-Content $path -Raw | ConvertFrom-Json
-    Assert-True ($context.schema -eq 1) 'unexpected build-context schema'
-    Assert-True ($context.git.branch -eq 'feature/build-intelligence') 'branch correlation failed'
-    Assert-True (-not [string]::IsNullOrWhiteSpace($context.git.headSha)) 'HEAD SHA was not captured'
-    Assert-True (@($context.git.changedFiles).Count -gt 0) 'working-tree changes were not captured'
-    Assert-True ($context.providers.github.status -eq 'unavailable') 'missing GitHub CLI should be unavailable'
-    Assert-True ($context.providers.azure.status -eq 'unavailable') 'missing Azure CLI should be unavailable'
-    Assert-True ($context.providers.jfrog.status -eq 'unavailable') 'missing JFrog CLI should be unavailable'
+    $fallbackPath = Join-Path $fallbackRepo '.security/output/build-context.json'
+    Assert-True (Test-Path $fallbackPath) 'collector did not create build-context.json'
+    $fallback = Get-Content $fallbackPath -Raw | ConvertFrom-Json
+    Assert-True ($fallback.schema -eq 2) 'unexpected build-context schema'
+    Assert-True ($fallback.git.branch -eq 'feature/build-intelligence') 'branch correlation failed'
+    Assert-True (-not [string]::IsNullOrWhiteSpace($fallback.git.headSha)) 'HEAD SHA was not captured'
+    Assert-True ($fallback.git.worktreeDirty -eq $true) 'dirty worktree was not recorded'
+    Assert-True ($fallback.git.remoteBuildScope -eq 'committed-head-only') 'dirty worktree must not be represented as remotely built'
+    Assert-True (@($fallback.git.changedFiles).Count -gt 0) 'working-tree changes were not captured'
+    Assert-True ($fallback.providers.github.status -eq 'unavailable') 'missing GitHub CLI should be unavailable'
+    Assert-True ($fallback.providers.azure.status -eq 'unavailable') 'missing Azure CLI should be unavailable'
+    Assert-True ($fallback.providers.jfrog.status -eq 'unavailable') 'missing JFrog CLI should be unavailable'
 
-    Write-Host 'Build intelligence fallback tests passed.'
+    # Provider contract behavior with deterministic mock CLIs.
+    $providerRepo = Join-Path $root 'providers'
+    New-TestRepository $providerRepo
+    Add-Content (Join-Path $providerRepo 'README.md') 'working tree change'
+    $headSha = ((git -C $providerRepo rev-parse HEAD) -join '').Trim()
+
+    $mockRoot = Join-Path $root 'mocks'
+    New-Item -ItemType Directory -Force -Path $mockRoot | Out-Null
+    $logPath = Join-Path $root 'provider-calls.jsonl'
+    $env:BUILD_INTELLIGENCE_TEST_LOG = $logPath
+    $env:BUILD_INTELLIGENCE_TEST_SHA = $headSha
+
+    $ghMock = Join-Path $mockRoot 'gh-mock.ps1'
+    Set-Content $ghMock @'
+param([Parameter(ValueFromRemainingArguments=$true)][string[]]$Remaining)
+@{ provider='gh'; cwd=(Get-Location).Path; args=@($Remaining) } | ConvertTo-Json -Compress | Add-Content $env:BUILD_INTELLIGENCE_TEST_LOG
+if ($Remaining[0] -eq 'auth') { $global:LASTEXITCODE = 0; return }
+if ($Remaining[0] -eq 'run' -and $Remaining[1] -eq 'list') {
+    @(@{ databaseId=101; number=17; name='CI'; workflowName='CI'; status='completed'; conclusion='success'; headBranch='feature/build-intelligence'; headSha=$env:BUILD_INTELLIGENCE_TEST_SHA; event='pull_request'; createdAt='2026-08-30T12:00:00Z'; updatedAt='2026-08-30T12:05:00Z'; url='https://example.invalid/run/101' }) | ConvertTo-Json -Compress
+    $global:LASTEXITCODE = 0
+    return
+}
+if ($Remaining[0] -eq 'pr' -and $Remaining[1] -eq 'view') {
+    @{ number=5; title='fixture'; url='https://example.invalid/pr/5'; headRefName='feature/build-intelligence'; headRefOid=$env:BUILD_INTELLIGENCE_TEST_SHA; baseRefName='main'; isDraft=$false; state='OPEN' } | ConvertTo-Json -Compress
+    $global:LASTEXITCODE = 0
+    return
+}
+if ($Remaining[0] -eq 'pr' -and $Remaining[1] -eq 'checks') {
+    @(@{ bucket='pending'; completedAt=$null; description='pending'; event='pull_request'; link='https://example.invalid/check'; name='security'; startedAt='2026-08-30T12:01:00Z'; state='PENDING'; workflow='CI' }) | ConvertTo-Json -Compress
+    $global:LASTEXITCODE = 8
+    return
+}
+$global:LASTEXITCODE = 1
+'@
+
+    $azMock = Join-Path $mockRoot 'az-mock.ps1'
+    Set-Content $azMock @'
+param([Parameter(ValueFromRemainingArguments=$true)][string[]]$Remaining)
+@{ provider='az'; cwd=(Get-Location).Path; args=@($Remaining) } | ConvertTo-Json -Compress | Add-Content $env:BUILD_INTELLIGENCE_TEST_LOG
+if ($Remaining[0] -eq 'extension' -and $Remaining[1] -eq 'show') {
+    @{ name='azure-devops'; version='1.0.2' } | ConvertTo-Json -Compress
+    $global:LASTEXITCODE = 0
+    return
+}
+if ($Remaining[0] -eq 'pipelines' -and $Remaining[1] -eq 'runs' -and $Remaining[2] -eq 'list') {
+    @(@{ id=55; buildNumber='20260830.1'; status='completed'; result='succeeded'; sourceBranch='refs/heads/feature/build-intelligence'; sourceVersion=$env:BUILD_INTELLIGENCE_TEST_SHA; queueTime='2026-08-30T12:00:00Z'; startTime='2026-08-30T12:01:00Z'; finishTime='2026-08-30T12:05:00Z'; definition=@{ id=42; name='app-ci' } }) | ConvertTo-Json -Depth 4 -Compress
+    $global:LASTEXITCODE = 0
+    return
+}
+$global:LASTEXITCODE = 1
+'@
+
+    $jfMock = Join-Path $mockRoot 'jf-mock.ps1'
+    Set-Content $jfMock @'
+param([Parameter(ValueFromRemainingArguments=$true)][string[]]$Remaining)
+@{ provider='jf'; cwd=(Get-Location).Path; args=@($Remaining) } | ConvertTo-Json -Compress | Add-Content $env:BUILD_INTELLIGENCE_TEST_LOG
+if ($Remaining[0] -eq 'build-scan') {
+    @{ vulnerabilities=@(@{ id='CVE-TEST-1'; severity='High' }); summary=@{ total=1 } } | ConvertTo-Json -Depth 5 -Compress
+    $global:LASTEXITCODE = 3
+    return
+}
+$global:LASTEXITCODE = 1
+'@
+
+    New-Item -ItemType Directory -Force -Path (Join-Path $providerRepo '.security') | Out-Null
+    @{
+        schema = 1
+        azure = @{
+            organization = 'https://dev.azure.com/example'
+            project = 'ExampleProject'
+            pipelineIds = @(42,43)
+        }
+        jfrog = @{
+            serverId = 'example'
+            project = 'project-key'
+            buildName = 'app-build'
+            buildNumberFrom = 'azureBuildId'
+        }
+    } | ConvertTo-Json -Depth 6 | Set-Content (Join-Path $providerRepo '.security/build-intelligence.json')
+
+    & $collector -RepositoryRoot $providerRepo -GitHubCommand $ghMock -AzureCommand $azMock -JFrogCommand $jfMock | Out-Null
+
+    $providerContext = Get-Content (Join-Path $providerRepo '.security/output/build-context.json') -Raw | ConvertFrom-Json
+    Assert-True ($providerContext.providers.github.status -eq 'available') 'GitHub provider should be available'
+    Assert-True ($providerContext.providers.github.correlation -eq 'exact-head') 'GitHub should correlate exact HEAD first'
+    Assert-True (@($providerContext.providers.github.runs).Count -eq 1) 'GitHub run evidence missing'
+    Assert-True (@($providerContext.providers.github.checks).Count -eq 1) 'pending GitHub checks should remain evidence despite exit code 8'
+
+    Assert-True ($providerContext.providers.azure.status -eq 'available') 'Azure provider should be available without az account show'
+    Assert-True ($providerContext.providers.azure.correlation -eq 'exact-head') 'Azure sourceVersion should correlate exact HEAD'
+    Assert-True ($providerContext.providers.azure.runs[0].pipelineId -eq 42) 'Azure normalized pipeline metadata missing'
+    Assert-True ($providerContext.providers.azure.runs[0].exactHead -eq $true) 'Azure exactHead marker missing'
+
+    Assert-True ($providerContext.providers.jfrog.status -eq 'available') 'JFrog exit 3 is evidence, not a generic provider failure'
+    Assert-True ($providerContext.providers.jfrog.builds[0].number -eq '55') 'JFrog build number mapping from Azure build ID failed'
+    Assert-True ($providerContext.providers.jfrog.builds[0].scanStatus -eq 'policy-violation') 'JFrog exit 3 should be policy-violation'
+    Assert-True ($providerContext.providers.jfrog.builds[0].evidenceFile -eq '.security/output/jfrog-build-scan.json') 'JFrog evidence pointer missing'
+    Assert-True (Test-Path (Join-Path $providerRepo '.security/output/jfrog-build-scan.json')) 'JFrog raw evidence was not written separately'
+
+    $calls = @(Get-Content $logPath | ForEach-Object { $_ | ConvertFrom-Json })
+    Assert-True (@($calls | Where-Object { $_.cwd -eq $providerRepo }).Count -eq $calls.Count 'all provider CLIs must execute from the target repository'
+
+    $ghRunCall = @($calls | Where-Object { $_.provider -eq 'gh' -and $_.args[0] -eq 'run' -and $_.args[1] -eq 'list' })[0]
+    Assert-True ($ghRunCall.args -contains '--commit') 'GitHub exact-commit query was not used'
+    Assert-True ($ghRunCall.args -contains $headSha) 'GitHub exact HEAD SHA was not passed'
+
+    $azRunCall = @($calls | Where-Object { $_.provider -eq 'az' -and $_.args[0] -eq 'pipelines' })[0]
+    $pipelineFlag = [Array]::IndexOf([object[]]$azRunCall.args, '--pipeline-ids')
+    Assert-True ($pipelineFlag -ge 0) 'Azure pipeline filter flag missing'
+    Assert-True ($azRunCall.args[$pipelineFlag + 1] -eq '42') 'first Azure pipeline ID was not a separate argument'
+    Assert-True ($azRunCall.args[$pipelineFlag + 2] -eq '43') 'second Azure pipeline ID was not a separate argument'
+
+    $jfCall = @($calls | Where-Object { $_.provider -eq 'jf' -and $_.args[0] -eq 'build-scan' })[0]
+    Assert-True ($jfCall.args[1] -eq 'app-build' -and $jfCall.args[2] -eq '55') 'JFrog build-scan identity was not mapped correctly'
+
+    Write-Host 'Build intelligence provider-contract tests passed.'
 }
 finally {
-    Remove-Item -Recurse -Force $tempRoot -ErrorAction SilentlyContinue
+    Remove-Item Env:BUILD_INTELLIGENCE_TEST_LOG -ErrorAction SilentlyContinue
+    Remove-Item Env:BUILD_INTELLIGENCE_TEST_SHA -ErrorAction SilentlyContinue
+    Remove-Item -Recurse -Force $root -ErrorAction SilentlyContinue
 }
