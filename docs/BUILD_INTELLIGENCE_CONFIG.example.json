@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "azure": {
+    "organization": "https://dev.azure.com/example",
+    "project": "ExampleProject",
+    "pipelineIds": [42]
+  },
+  "jfrog": {
+    "serverId": "example-jfrog",
+    "project": "example-project-key",
+    "buildName": "example-build",
+    "buildNumberFrom": "githubRunNumber"
+  }
+}
