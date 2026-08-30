@@ -46,6 +46,10 @@ jobs:
         shell: pwsh
         run: ./tests/baseline-initialization.ps1
 
+      - name: Run build intelligence tests
+        shell: pwsh
+        run: ./tests/build-intelligence.ps1
+
       - name: Run realistic fixture pilot validation
         shell: pwsh
         run: ./tests/fixture-pilot.ps1
