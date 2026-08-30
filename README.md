@@ -8,6 +8,8 @@ This project is intentionally designed for the **GitHub Copilot VS Code extensio
 
 It does not require Copilot CLI, a Copilot plugin marketplace, MCP servers, or Git submodules. After installation, the application repository is self-contained.
 
+`gh`, `az`, and `jf` can optionally be used as **read-only evidence-provider CLIs** through VS Code Agent terminal tooling. They are not Copilot clients and are never a replacement distribution path.
+
 ## Architecture
 
 ```mermaid
@@ -42,13 +44,19 @@ flowchart TB
     skill --> dotnet[".NET skill"]
     skill --> angular["Angular/Yarn skill"]
     skill --> cross["cross-stack skill"]
+    reviewer --> build["optional BuildContext"]
+    build --> gh["GitHub CLI"]
+    build --> az["Azure DevOps CLI"]
+    build --> jf["JFrog CLI / Xray"]
     dotnet --> dispatcher[".security/run-security.ps1"]
     angular --> dispatcher
     cross --> dispatcher
-    dispatcher --> evidence["deterministic evidence"]
-    evidence --> normalized["normalized findings + fingerprints"]
-    normalized --> reasoning["Copilot attack-path reasoning"]
-    reasoning --> result["compact findings / minimal remediation / verification"]
+    gh --> evidence["normalized build evidence"]
+    az --> evidence
+    jf --> evidence
+    dispatcher --> evidence
+    evidence --> reasoning["Copilot evidence + attack-path reasoning"]
+    reasoning --> result["compact findings / build correlation / remediation / verification"]
 ```
 
 ## What the pack provides
@@ -57,12 +65,13 @@ flowchart TB
 - A `Security Reviewer` custom agent.
 - On-demand .NET, Angular/Yarn, and cross-stack security skills.
 - Progressive-disclosure skill references loaded only for deeper domain review.
-- Reusable prompt commands for changed-code review, dependencies, privileged flows, finding investigation/remediation, full audits, and initial baseline adoption.
+- Reusable prompt commands for changed-code review, dependencies, privileged flows, build intelligence, finding investigation/remediation, full audits, and initial baseline adoption.
 - `.security/run-security.ps1` as the single automation entry point.
 - Direct and transitive NuGet vulnerability evidence.
 - Yarn Classic and modern Yarn audit evidence.
 - Per-advisory normalized findings with stable SHA-256 fingerprints.
 - Existing-vulnerability baseline support without suppressing newly introduced risk.
+- Branch/worktree-aware GitHub Actions, Azure DevOps and JFrog Build-Info/Xray evidence through optional locally installed CLIs.
 - CI policy gating that fails new high/critical findings and scanner failures.
 - Blind fixture/evaluation tooling for measuring actual VS Code Copilot behavior.
 
@@ -73,6 +82,7 @@ Inside Copilot Chat in VS Code:
 ```text
 /security-review-changes
 /security-review-dependencies
+/security-review-build
 /security-review-flow
 /security-investigate-finding
 /security-fix-finding
@@ -80,13 +90,36 @@ Inside Copilot Chat in VS Code:
 /security-initialize-baseline
 ```
 
-Developers should not need to learn individual scanner commands. Copilot runs the stable dispatcher itself through VS Code's terminal tooling:
+Developers should not need to learn individual scanner or provider commands. Copilot runs the stable dispatcher itself through VS Code's terminal tooling:
 
 ```powershell
 pwsh -NoProfile -File .security/run-security.ps1 -Mode Changes
+pwsh -NoProfile -File .security/run-security.ps1 -Mode BuildContext
 ```
 
-Detailed scanner evidence remains under `.security/output`; chat responses should stay compact and evidence-based.
+Detailed scanner/provider evidence remains under `.security/output`; chat responses should stay compact and evidence-based.
+
+## Agentic build intelligence
+
+`/security-review-build` correlates the developer's current branch, exact HEAD SHA and dirty worktree with remote build evidence.
+
+```mermaid
+flowchart LR
+    git["branch + HEAD + worktree"] --> context["BuildContext"]
+    context --> gh["gh run / PR checks"]
+    context --> az["az pipelines runs"]
+    context --> jf["jf build-scan --vuln"]
+    gh --> out["build-context.json"]
+    az --> out
+    jf --> raw["jfrog-build-scan.json"]
+    jf --> out
+    out --> reviewer["Security Reviewer"]
+    raw -. on demand .-> reviewer
+```
+
+The v0.5 capability is read-only: no CI queue/rerun/cancel, no artifact upload, no JFrog publish/promote/delete, no provider installation, and no interactive login. A dirty worktree is never represented as if it had already been built remotely.
+
+See [Build Intelligence](docs/BUILD_INTELLIGENCE.md) for configuration, correlation strength, provider status semantics, and the JFrog/Azure/GitHub command contracts.
 
 ## Install
 
@@ -105,7 +138,7 @@ pwsh -NoProfile -File ./installer/install.ps1 `
   -TargetRepo C:\src\my-application
 ```
 
-The installer detects .NET, Angular/Yarn, and combined repositories, installs only applicable payload files, preserves repository-owned policy/baseline/exception files, and does not blindly overwrite an existing `.github/copilot-instructions.md`.
+The installer detects .NET, Angular/Yarn, and combined repositories, installs only applicable payload files, preserves repository-owned policy/baseline/exception/build-intelligence files, and does not blindly overwrite an existing `.github/copilot-instructions.md`.
 
 ## Upgrade safety
 
@@ -190,7 +223,8 @@ See [Open Source and External Design Patterns](docs/OPEN_SOURCE_AND_EXTERNAL_PAT
 - `v0.1.0-alpha.1`: architecture preview.
 - `v0.2.0-alpha.1`: versioned installer, canonical payload, dependency normalization, fingerprints, and guarded baseline workflow.
 - `v0.3.0-alpha.1`: realistic fixture, blind VS Code Copilot evaluation harness, and Yarn/Corepack portability hardening.
-- `v0.4.0-alpha.1`: architecture diagrams, open-source licensing, and progressive-disclosure skill references (development line).
+- `v0.4.0-alpha.1`: architecture diagrams, open-source licensing, and progressive-disclosure skill references.
+- `v0.5.0-alpha.1`: branch/worktree-aware agentic Build Intelligence through read-only `gh`, Azure DevOps `az`, and JFrog `jf` adapters.
 - Stable `v1.0.0`: only after representative real-repository/VDI validation and additional hardening.
 
 A passing scan is evidence from the checks that ran; it is never proof that an application is vulnerability-free.
