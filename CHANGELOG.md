@@ -8,6 +8,15 @@ The project follows semantic versioning once stable releases begin.
 
 ### Added
 
+- `v0.5.0-alpha.1` agentic Build Intelligence line.
+- `/security-review-build` prompt and `BuildContext` dispatcher mode.
+- Read-only GitHub CLI adapter for exact-HEAD/branch workflow runs, current PR metadata, and PR checks.
+- Read-only Azure DevOps CLI adapter for branch pipeline runs with exact `sourceVersion` correlation when available.
+- Read-only JFrog CLI adapter for explicitly resolved published Build-Info Xray scans.
+- Repository-owned `.security/build-intelligence.json` mapping for Azure pipeline scope and JFrog build identity.
+- Compact `.security/output/build-context.json` schema 2 with explicit correlation and evidence-gap states.
+- Separate `.security/output/jfrog-build-scan.json` for large Xray evidence loaded only on demand.
+- Deterministic provider-contract tests using mocked `gh`, `az`, and `jf` commands.
 - `v0.4.0-alpha.1` architecture/documentation hardening line.
 - MIT open-source license.
 - Mermaid architecture catalog covering distribution, developer review, deterministic evidence, cross-stack authorization, dependency baselines, upgrade ownership, and the blind VS Code pilot.
@@ -17,7 +26,16 @@ The project follows semantic versioning once stable releases begin.
 
 ### Changed
 
-- README now uses architecture diagrams for the main distribution, review, and upgrade-safety concepts.
+- Build-provider commands always execute from the target repository, independent of VS Code terminal cwd.
+- GitHub build correlation prefers exact HEAD SHA before branch fallback.
+- Pending GitHub PR checks (CLI exit code 8) are preserved as valid evidence.
+- Azure DevOps authentication no longer depends on `az account show`; the adapter supports existing Azure/DevOps login or `AZURE_DEVOPS_EXT_PAT` through the official CLI behavior.
+- Azure DevOps extension must already be installed; Build Intelligence does not intentionally auto-install provider tooling.
+- Azure `--pipeline-ids` are passed as separate CLI arguments.
+- JFrog `build-scan` uses `--vuln` so vulnerability evidence does not depend on Watch/Fail Build policy configuration.
+- JFrog exit code 3 is classified as a completed `policy-violation`, not a generic scanner failure.
+- Dirty worktrees explicitly state that remote CI represents committed HEAD only.
+- README uses architecture diagrams for the main distribution, review, and upgrade-safety concepts.
 - Skill bodies remain compact while detailed review checklists load only when relevant.
 
 ## [0.3.0-alpha.1] - 2026-08-25
@@ -48,7 +66,7 @@ The project follows semantic versioning once stable releases begin.
 - `installer/uninstall.ps1` with preservation of locally modified files.
 - Managed-file SHA-256 state tracking and conflict detection.
 - Explicit `-ForceManagedOverwrite` override for reviewed managed-file conflicts.
-- Preservation of repository-owned security policy, baselines, exceptions, and existing `copilot-instructions.md`.
+- Preservation of repository-owned security policy, baselines, exceptions, and existing `.github/copilot-instructions.md`.
 - Target `.security/copilot-pack.yml` and `.security/copilot-pack-state.json` installation metadata.
 - `-WhatIf` installation preview.
 - Installer idempotency, stack-selection, manifest-integrity, normalization, and baseline-initialization tests.
