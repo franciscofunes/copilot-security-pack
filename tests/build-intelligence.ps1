@@ -21,7 +21,6 @@ $collector = Join-Path $repoRoot 'pack/.security/scripts/collect-build-context.p
 $root = Join-Path ([System.IO.Path]::GetTempPath()) ('copilot-security-build-context-' + [guid]::NewGuid().ToString('N'))
 
 try {
-    # Fallback behavior when no provider CLI is available.
     $fallbackRepo = Join-Path $root 'fallback'
     New-TestRepository $fallbackRepo
     Add-Content (Join-Path $fallbackRepo 'README.md') 'working tree change'
@@ -41,7 +40,6 @@ try {
     Assert-True ($fallback.providers.azure.status -eq 'unavailable') 'missing Azure CLI should be unavailable'
     Assert-True ($fallback.providers.jfrog.status -eq 'unavailable') 'missing JFrog CLI should be unavailable'
 
-    # Provider contract behavior with deterministic mock CLIs.
     $providerRepo = Join-Path $root 'providers'
     New-TestRepository $providerRepo
     Add-Content (Join-Path $providerRepo 'README.md') 'working tree change'
@@ -141,7 +139,7 @@ $global:LASTEXITCODE = 1
     Assert-True (Test-Path (Join-Path $providerRepo '.security/output/jfrog-build-scan.json')) 'JFrog raw evidence was not written separately'
 
     $calls = @(Get-Content $logPath | ForEach-Object { $_ | ConvertFrom-Json })
-    Assert-True (@($calls | Where-Object { $_.cwd -eq $providerRepo }).Count -eq $calls.Count 'all provider CLIs must execute from the target repository'
+    Assert-True (@($calls | Where-Object { $_.cwd -eq $providerRepo }).Count -eq $calls.Count) 'all provider CLIs must execute from the target repository'
 
     $ghRunCall = @($calls | Where-Object { $_.provider -eq 'gh' -and $_.args[0] -eq 'run' -and $_.args[1] -eq 'list' })[0]
     Assert-True ($ghRunCall.args -contains '--commit') 'GitHub exact-commit query was not used'
