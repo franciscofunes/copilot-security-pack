@@ -50,6 +50,10 @@ jobs:
         shell: pwsh
         run: ./tests/build-intelligence.ps1
 
+      - name: Run AI-agent security contract tests
+        shell: pwsh
+        run: ./tests/ai-agent-security.ps1
+
       - name: Run realistic fixture pilot validation
         shell: pwsh
         run: ./tests/fixture-pilot.ps1
