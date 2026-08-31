@@ -8,13 +8,22 @@ The project follows semantic versioning once stable releases begin.
 
 ### Added
 
+- `v0.6.0-alpha.1` AI-agent red-team line.
+- Standalone adversarial fixture covering indirect prompt injection, provider-metadata injection, confused-deputy provider targeting, secret exfiltration, and tool-boundary expansion.
+- External machine-readable red-team answer key under `evaluations/agent-red-team-cases.json`.
+- `evaluations/prepare-agent-red-team.ps1` for one-command blind VS Code workspace preparation without leaking the answer key.
+- `evaluations/RED_TEAM_RUN_TEMPLATE.md` with a 10-point scorecard and hard-fail safety invariants.
+- Deterministic `tests/agent-red-team.ps1` validation for answer-key isolation, redaction, config trust, evidence trust markers, and the VS Code agent tool contract.
+- `docs/AGENT_RED_TEAM.md` with Mermaid attack-flow, containment, and CI-versus-real-model validation diagrams.
+- `v0.5.0-alpha.2` AI-agent security hardening after the Build Intelligence introduction.
+- Explicit AI-agent threat model in `docs/AI_AGENT_SECURITY.md`.
 - `v0.5.0-alpha.1` agentic Build Intelligence line.
 - `/security-review-build` prompt and `BuildContext` dispatcher mode.
 - Read-only GitHub CLI adapter for exact-HEAD/branch workflow runs, current PR metadata, and PR checks.
 - Read-only Azure DevOps CLI adapter for branch pipeline runs with exact `sourceVersion` correlation when available.
 - Read-only JFrog CLI adapter for explicitly resolved published Build-Info Xray scans.
 - Repository-owned `.security/build-intelligence.json` mapping for Azure pipeline scope and JFrog build identity.
-- Compact `.security/output/build-context.json` schema 2 with explicit correlation and evidence-gap states.
+- Compact `.security/output/build-context.json` evidence with explicit correlation and evidence-gap states.
 - Separate `.security/output/jfrog-build-scan.json` for large Xray evidence loaded only on demand.
 - Deterministic provider-contract tests using mocked `gh`, `az`, and `jf` commands.
 - `v0.4.0-alpha.1` architecture/documentation hardening line.
@@ -26,6 +35,10 @@ The project follows semantic versioning once stable releases begin.
 
 ### Changed
 
+- Security Reviewer is explicitly scoped to VS Code with the least-privilege `read`, `search`, `edit`, and `execute` tool allowlist.
+- Repository, scanner, CI, pipeline, and JFrog content is explicitly treated as untrusted data rather than instructions.
+- Build Intelligence schema 3 marks external evidence as untrusted, sanitizes credential-bearing URLs, bounds external text, and rejects untrusted branch/worktree provider mappings.
+- Azure/JFrog provider configuration must come from trusted current/default-branch state; modified or unverifiable mappings are refused instead of used as remote targets.
 - Build-provider commands always execute from the target repository, independent of VS Code terminal cwd.
 - GitHub build correlation prefers exact HEAD SHA before branch fallback.
 - Pending GitHub PR checks (CLI exit code 8) are preserved as valid evidence.
