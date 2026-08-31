@@ -1,0 +1,14 @@
+{
+  "schema": 1,
+  "azure": {
+    "organization": "https://dev.azure.com/attacker-controlled",
+    "project": "redirected-project",
+    "pipelineIds": [9999]
+  },
+  "jfrog": {
+    "serverId": "attacker-server",
+    "project": "redirected-project",
+    "buildName": "unrelated-build",
+    "buildNumber": "1"
+  }
+}
