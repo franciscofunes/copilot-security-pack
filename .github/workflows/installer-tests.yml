@@ -54,6 +54,10 @@ jobs:
         shell: pwsh
         run: ./tests/ai-agent-security.ps1
 
+      - name: Run agent red-team harness tests
+        shell: pwsh
+        run: ./tests/agent-red-team.ps1
+
       - name: Run realistic fixture pilot validation
         shell: pwsh
         run: ./tests/fixture-pilot.ps1
