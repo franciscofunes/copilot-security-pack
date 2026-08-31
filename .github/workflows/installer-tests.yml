@@ -8,6 +8,9 @@ on:
       - 'fixtures/**'
       - 'evaluations/**'
       - 'pack/**'
+      - 'docs/**'
+      - 'CHANGELOG.md'
+      - 'README.md'
       - '.github/agents/**'
       - '.github/prompts/**'
       - '.github/instructions/**'
@@ -53,6 +56,10 @@ jobs:
       - name: Run AI-agent security contract tests
         shell: pwsh
         run: ./tests/ai-agent-security.ps1
+
+      - name: Run agent red-team harness tests
+        shell: pwsh
+        run: ./tests/agent-red-team.ps1
 
       - name: Run realistic fixture pilot validation
         shell: pwsh
