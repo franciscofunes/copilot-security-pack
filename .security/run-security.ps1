@@ -30,7 +30,10 @@ if ($Mode -eq 'BuildContext') {
 
 if ($Mode -eq 'Dependabot') {
     & (Join-Path $scripts 'collect-dependabot-context.ps1') -RepositoryRoot $repoRoot | Out-Null
-    Get-Content (Join-Path $output 'dependabot-context.json') -Raw
+    & (Join-Path $scripts 'collect-dependabot-org-context.ps1') -RepositoryRoot $repoRoot | Out-Null
+    $repositoryContext = Get-Content (Join-Path $output 'dependabot-context.json') -Raw | ConvertFrom-Json
+    $organizationContext = Get-Content (Join-Path $output 'dependabot-org-context.json') -Raw | ConvertFrom-Json
+    [pscustomobject]@{ repository=$repositoryContext; organizationSecurity=$organizationContext } | ConvertTo-Json -Depth 14
     exit 0
 }
 
