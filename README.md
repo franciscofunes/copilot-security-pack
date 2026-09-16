@@ -45,18 +45,20 @@ flowchart TB
     skill --> angular["Angular/Yarn skill"]
     skill --> cross["cross-stack skill"]
     reviewer --> build["optional BuildContext"]
+    reviewer --> dependabot["optional Dependabot Intelligence"]
     build --> gh["GitHub CLI"]
     build --> az["Azure DevOps CLI"]
     build --> jf["JFrog CLI / Xray"]
+    dependabot --> gh
     dotnet --> dispatcher[".security/run-security.ps1"]
     angular --> dispatcher
     cross --> dispatcher
-    gh --> evidence["normalized build evidence"]
+    gh --> evidence["normalized external evidence"]
     az --> evidence
     jf --> evidence
     dispatcher --> evidence
     evidence --> reasoning["Copilot evidence + attack-path reasoning"]
-    reasoning --> result["compact findings / build correlation / remediation / verification"]
+    reasoning --> result["compact findings / posture / remediation / verification"]
 ```
 
 ## What the pack provides
@@ -65,15 +67,16 @@ flowchart TB
 - A `Security Reviewer` custom agent.
 - On-demand .NET, Angular/Yarn, and cross-stack security skills.
 - Progressive-disclosure skill references loaded only for deeper domain review.
-- Reusable prompt commands for changed-code review, dependencies, privileged flows, build intelligence, finding investigation/remediation, full audits, and initial baseline adoption.
+- Reusable prompt commands for changed-code review, dependencies, privileged flows, build intelligence, Dependabot posture, finding investigation/remediation, full audits, and initial baseline adoption.
 - `.security/run-security.ps1` as the single automation entry point.
 - Direct and transitive NuGet vulnerability evidence.
 - Yarn Classic and modern Yarn audit evidence.
 - Per-advisory normalized findings with stable SHA-256 fingerprints.
 - Existing-vulnerability baseline support without suppressing newly introduced risk.
 - Branch/worktree-aware GitHub Actions, Azure DevOps and JFrog Build-Info/Xray evidence through optional locally installed CLIs.
+- Dependabot alert, security-update, repository configuration, and organization-readiness evidence through GitHub CLI.
 - CI policy gating that fails new high/critical findings and scanner failures.
-- Blind fixture/evaluation tooling for measuring actual VS Code Copilot behavior.
+- Blind fixture/evaluation and agent red-team tooling for measuring actual VS Code Copilot behavior.
 
 ## Developer UX
 
@@ -83,6 +86,7 @@ Inside Copilot Chat in VS Code:
 /security-review-changes
 /security-review-dependencies
 /security-review-build
+/security-review-dependabot
 /security-review-flow
 /security-investigate-finding
 /security-fix-finding
@@ -95,6 +99,7 @@ Developers should not need to learn individual scanner or provider commands. Cop
 ```powershell
 pwsh -NoProfile -File .security/run-security.ps1 -Mode Changes
 pwsh -NoProfile -File .security/run-security.ps1 -Mode BuildContext
+pwsh -NoProfile -File .security/run-security.ps1 -Mode Dependabot
 ```
 
 Detailed scanner/provider evidence remains under `.security/output`; chat responses should stay compact and evidence-based.
@@ -117,9 +122,31 @@ flowchart LR
     raw -. on demand .-> reviewer
 ```
 
-The v0.5 capability is read-only: no CI queue/rerun/cancel, no artifact upload, no JFrog publish/promote/delete, no provider installation, and no interactive login. A dirty worktree is never represented as if it had already been built remotely.
+The capability is read-only: no CI queue/rerun/cancel, no artifact upload, no JFrog publish/promote/delete, no provider installation, and no interactive login. A dirty worktree is never represented as if it had already been built remotely.
 
 See [Build Intelligence](docs/BUILD_INTELLIGENCE.md) for configuration, correlation strength, provider status semantics, and the JFrog/Azure/GitHub command contracts.
+
+## Dependabot Intelligence
+
+`/security-review-dependabot` inspects repository and organization Dependabot posture through read-only GitHub CLI API calls.
+
+```mermaid
+flowchart LR
+    repo["Current repository"] --> mode["Dependabot mode"]
+    mode --> cfg["dependabot.yml presence"]
+    mode --> alerts["open alerts"]
+    mode --> updates["security updates"]
+    mode --> org["organization readiness"]
+    cfg --> out["dependabot-context.json"]
+    alerts --> out
+    updates --> out
+    org --> out
+    out --> reviewer["Security Reviewer"]
+```
+
+The review keeps Dependabot alerts, Dependabot security updates, `.github/dependabot.yml`, and organization repository-access settings separate. If the configuration file is absent, the pack recommends a GitHub-supported `version: 2` configuration based on detected NuGet, npm/Yarn, GitHub Actions, and Docker files, but does not create it without an explicit request.
+
+See [Dependabot Intelligence](docs/DEPENDABOT_INTELLIGENCE.md) for the command contract, organization permission semantics, config guidance, and AI trust boundary.
 
 ## Install
 
@@ -225,6 +252,9 @@ See [Open Source and External Design Patterns](docs/OPEN_SOURCE_AND_EXTERNAL_PAT
 - `v0.3.0-alpha.1`: realistic fixture, blind VS Code Copilot evaluation harness, and Yarn/Corepack portability hardening.
 - `v0.4.0-alpha.1`: architecture diagrams, open-source licensing, and progressive-disclosure skill references.
 - `v0.5.0-alpha.1`: branch/worktree-aware agentic Build Intelligence through read-only `gh`, Azure DevOps `az`, and JFrog `jf` adapters.
+- `v0.5.0-alpha.2`: AI-agent prompt-injection, confused-deputy, URL/secret, and tool-boundary hardening.
+- `v0.6.0-alpha.1`: adversarial AI-agent red-team harness and blind attack pilot protocol.
+- `v0.7.0-alpha.1`: Dependabot Intelligence through read-only GitHub CLI with repository configuration and organization-readiness checks.
 - Stable `v1.0.0`: only after representative real-repository/VDI validation and additional hardening.
 
 A passing scan is evidence from the checks that ran; it is never proof that an application is vulnerability-free.
