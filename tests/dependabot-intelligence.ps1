@@ -91,7 +91,7 @@ if ($Remaining[0] -eq 'api') {
         ConvertTo-Json -InputObject $pages -Depth 8 -Compress
         $global:LASTEXITCODE=0; return
     }
-    if ($endpoint -like 'orgs/acme/code-security/configurations?*') {
+    if ($endpoint -eq 'orgs/acme/code-security/configurations?per_page=100') {
         $c1=@{ id=100; target_type='organization'; name='Dependabot baseline'; dependency_graph='enabled'; dependabot_alerts='enabled'; dependabot_security_updates='enabled'; enforcement='enforced' }
         $c2=@{ id=101; target_type='organization'; name='Audit only'; dependency_graph='enabled'; dependabot_alerts='enabled'; dependabot_security_updates='not_set'; enforcement='unenforced' }
         $pages=@(@($c1,$c2))
