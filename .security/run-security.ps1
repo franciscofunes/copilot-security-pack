@@ -1,5 +1,5 @@
 param(
-    [ValidateSet('Changes','Dependencies','Full','Finding','InitializeBaseline','BuildContext')]
+    [ValidateSet('Changes','Dependencies','Full','Finding','InitializeBaseline','BuildContext','Dependabot')]
     [string]$Mode = 'Changes',
     [string]$FindingId,
     [switch]$ConfirmBaseline
@@ -25,6 +25,12 @@ function Invoke-DependencyScans {
 if ($Mode -eq 'BuildContext') {
     & (Join-Path $scripts 'collect-build-context.ps1') -RepositoryRoot $repoRoot | Out-Null
     Get-Content (Join-Path $output 'build-context.json') -Raw
+    exit 0
+}
+
+if ($Mode -eq 'Dependabot') {
+    & (Join-Path $scripts 'collect-dependabot-context.ps1') -RepositoryRoot $repoRoot | Out-Null
+    Get-Content (Join-Path $output 'dependabot-context.json') -Raw
     exit 0
 }
 
