@@ -24,14 +24,18 @@ function New-TestRepository([string]$Path) {
 
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $collector = Join-Path $repoRoot 'pack/.security/scripts/collect-dependabot-context.ps1'
+$orgCollector = Join-Path $repoRoot 'pack/.security/scripts/collect-dependabot-org-context.ps1'
 $root = Join-Path ([System.IO.Path]::GetTempPath()) ('copilot-security-dependabot-' + [guid]::NewGuid().ToString('N'))
 
 try {
     $fallbackRepo = Join-Path $root 'fallback'
     New-TestRepository $fallbackRepo
     & $collector -RepositoryRoot $fallbackRepo -GitHubCommand '__missing_gh__' | Out-Null
+    & $orgCollector -RepositoryRoot $fallbackRepo -GitHubCommand '__missing_gh__' | Out-Null
     $fallback = Get-Content (Join-Path $fallbackRepo '.security/output/dependabot-context.json') -Raw | ConvertFrom-Json
+    $fallbackOrg = Get-Content (Join-Path $fallbackRepo '.security/output/dependabot-org-context.json') -Raw | ConvertFrom-Json
     Assert-True ($fallback.githubCli.status -eq 'unavailable') 'missing gh must be unavailable'
+    Assert-True ($fallbackOrg.status -eq 'unavailable') 'missing gh must leave organization security context unavailable'
     Assert-True ($fallback.configuration.status -eq 'missing') 'missing dependabot.yml must be reported independently'
     Assert-True (-not [string]::IsNullOrWhiteSpace($fallback.configuration.recommendation)) 'missing config should produce a recommendation'
     $ecosystems = @($fallback.configuration.detectedEcosystems | ForEach-Object { $_.packageEcosystem })
@@ -87,12 +91,31 @@ if ($Remaining[0] -eq 'api') {
         ConvertTo-Json -InputObject $pages -Depth 8 -Compress
         $global:LASTEXITCODE=0; return
     }
+    if ($endpoint -like 'orgs/acme/code-security/configurations?*') {
+        $c1=@{ id=100; target_type='organization'; name='Dependabot baseline'; dependency_graph='enabled'; dependabot_alerts='enabled'; dependabot_security_updates='enabled'; enforcement='enforced' }
+        $c2=@{ id=101; target_type='organization'; name='Audit only'; dependency_graph='enabled'; dependabot_alerts='enabled'; dependabot_security_updates='not_set'; enforcement='unenforced' }
+        $pages=@(@($c1,$c2))
+        ConvertTo-Json -InputObject $pages -Depth 8 -Compress
+        $global:LASTEXITCODE=0; return
+    }
+    if ($endpoint -eq 'orgs/acme/code-security/configurations/defaults') {
+        $configuration=@{ id=100; target_type='organization'; name='Dependabot baseline'; dependency_graph='enabled'; dependabot_alerts='enabled'; dependabot_security_updates='enabled'; enforcement='enforced' }
+        ConvertTo-Json -InputObject @(@{ default_for_new_repos='all'; configuration=$configuration }) -Depth 8 -Compress
+        $global:LASTEXITCODE=0; return
+    }
+    if ($endpoint -eq 'repos/acme/app/code-security-configuration') {
+        $configuration=@{ id=100; target_type='organization'; name='Dependabot baseline'; dependency_graph='enabled'; dependabot_alerts='enabled'; dependabot_security_updates='enabled'; enforcement='enforced' }
+        @{ status='attached'; configuration=$configuration } | ConvertTo-Json -Depth 8 -Compress
+        $global:LASTEXITCODE=0; return
+    }
 }
 $global:LASTEXITCODE=1
 '@
 
     & $collector -RepositoryRoot $providerRepo -GitHubCommand $ghMock | Out-Null
+    & $orgCollector -RepositoryRoot $providerRepo -GitHubCommand $ghMock | Out-Null
     $context = Get-Content (Join-Path $providerRepo '.security/output/dependabot-context.json') -Raw | ConvertFrom-Json
+    $orgContext = Get-Content (Join-Path $providerRepo '.security/output/dependabot-org-context.json') -Raw | ConvertFrom-Json
     Assert-True ($context.schema -eq 1) 'unexpected Dependabot context schema'
     Assert-True ($context.evidenceTrust -eq 'untrusted-external-content') 'Dependabot evidence must be marked untrusted'
     Assert-True ($context.repository.nameWithOwner -eq 'acme/app') 'repository identity missing'
@@ -113,10 +136,22 @@ $global:LASTEXITCODE=1
     Assert-True ($context.organization.repositoryAccess.defaultLevel -eq 'public') 'organization Dependabot access default missing'
     Assert-True ($context.organization.currentRepositoryExplicitlyAccessible -eq $true) 'current repository access should be detected'
 
+    Assert-True ($orgContext.status -eq 'available-with-permission-limits') 'organization security configuration context unavailable'
+    Assert-True ($orgContext.evidenceTrust -eq 'untrusted-external-content') 'organization security configuration evidence must be untrusted'
+    Assert-True ($orgContext.configurations.status -eq 'available') 'organization code security configurations should be visible'
+    Assert-True (@($orgContext.configurations.items).Count -eq 2) 'organization code security configuration count incorrect'
+    Assert-True ($orgContext.defaults.status -eq 'available') 'organization default security configurations should be visible'
+    Assert-True ($orgContext.defaults.items[0].defaultForNewRepos -eq 'all') 'organization default applicability missing'
+    Assert-True ($orgContext.defaults.items[0].configuration.dependabotAlerts -eq 'enabled') 'default Dependabot alerts setting missing'
+    Assert-True ($orgContext.repositoryConfiguration.attachmentStatus -eq 'attached') 'repository security configuration attachment missing'
+    Assert-True ($orgContext.repositoryConfiguration.configuration.dependabotSecurityUpdates -eq 'enabled') 'attached Dependabot security-update setting missing'
+
     $calls = @(Get-Content $logPath | ForEach-Object { $_ | ConvertFrom-Json })
     Assert-True (@($calls | Where-Object { $_.cwd -eq $providerRepo }).Count -eq $calls.Count) 'all gh commands must execute in target repo'
     Assert-True (@($calls | Where-Object { $_.args -contains '-X' -or $_.args -contains '--method' }).Count -eq 0) 'Dependabot Intelligence v0.7 must remain read-only'
     Assert-True (@($calls | Where-Object { $_.args[0] -eq 'api' -and $_.args[1] -like 'orgs/acme/dependabot/repository-access*' }).Count -eq 1) 'organization repository-access endpoint was not queried'
+    Assert-True (@($calls | Where-Object { $_.args[0] -eq 'api' -and $_.args[1] -like 'orgs/acme/code-security/configurations*' }).Count -ge 2) 'organization code security configuration endpoints were not queried'
+    Assert-True (@($calls | Where-Object { $_.args[0] -eq 'api' -and $_.args[1] -eq 'repos/acme/app/code-security-configuration' }).Count -eq 1) 'repository attached security configuration endpoint was not queried'
 
     New-Item -ItemType Directory -Force -Path (Join-Path $providerRepo '.github') | Out-Null
     @'
@@ -131,6 +166,11 @@ updates:
     $configured = Get-Content (Join-Path $providerRepo '.security/output/dependabot-context.json') -Raw | ConvertFrom-Json
     Assert-True ($configured.configuration.status -eq 'present-basic-valid') 'basic valid dependabot.yml should be recognized'
     Assert-True ($null -eq $configured.configuration.recommendation) 'configured repository should not be encouraged to create another config'
+
+    $packPrompt = Get-Content (Join-Path $repoRoot 'pack/.github/prompts/security-review-dependabot.prompt.md') -Raw
+    $rootPrompt = Get-Content (Join-Path $repoRoot '.github/prompts/security-review-dependabot.prompt.md') -Raw
+    Assert-True ($packPrompt -eq $rootPrompt) 'canonical/source Dependabot prompts must remain synchronized'
+    Assert-True ($packPrompt -match 'dependabot-org-context\.json') 'prompt must require organization security configuration evidence'
 
     Write-Host 'Dependabot Intelligence contract tests passed.'
 }
