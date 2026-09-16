@@ -1,5 +1,5 @@
 param(
-    [ValidateSet('Changes','Dependencies','Full','Finding','InitializeBaseline','BuildContext')]
+    [ValidateSet('Changes','Dependencies','Full','Finding','InitializeBaseline','BuildContext','Dependabot')]
     [string]$Mode = 'Changes',
     [string]$FindingId,
     [switch]$ConfirmBaseline
@@ -25,6 +25,15 @@ function Invoke-DependencyScans {
 if ($Mode -eq 'BuildContext') {
     & (Join-Path $scripts 'collect-build-context.ps1') -RepositoryRoot $repoRoot | Out-Null
     Get-Content (Join-Path $output 'build-context.json') -Raw
+    exit 0
+}
+
+if ($Mode -eq 'Dependabot') {
+    & (Join-Path $scripts 'collect-dependabot-context.ps1') -RepositoryRoot $repoRoot | Out-Null
+    & (Join-Path $scripts 'collect-dependabot-org-context.ps1') -RepositoryRoot $repoRoot | Out-Null
+    $repositoryContext = Get-Content (Join-Path $output 'dependabot-context.json') -Raw | ConvertFrom-Json
+    $organizationContext = Get-Content (Join-Path $output 'dependabot-org-context.json') -Raw | ConvertFrom-Json
+    [pscustomobject]@{ repository=$repositoryContext; organizationSecurity=$organizationContext } | ConvertTo-Json -Depth 14
     exit 0
 }
 
