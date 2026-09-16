@@ -8,6 +8,14 @@ The project follows semantic versioning once stable releases begin.
 
 ### Added
 
+- `v0.7.0-alpha.1` Dependabot Intelligence line.
+- `/security-review-dependabot` prompt and `Dependabot` dispatcher mode.
+- Read-only GitHub CLI Dependabot collector for repository alerts, Dependabot security-update state, repository configuration presence, and organization readiness.
+- Compact `.security/output/dependabot-context.json` evidence marked as untrusted external content.
+- Missing `.github/dependabot.yml` recommendation with detected NuGet, npm/Yarn, GitHub Actions, and Docker ecosystems/directories.
+- Organization-level Dependabot alerts visibility and repository-access checks when the repository owner is an organization and the current token has sufficient permissions.
+- Deterministic mocked-`gh` provider-contract tests covering alert severity, direct/transitive relationship, security-update state, organization access, URL redaction, advisory text bounding, and read-only API usage.
+- `docs/DEPENDABOT_INTELLIGENCE.md` with Mermaid architecture, repository decision model, organization-readiness flow, and AI trust-boundary documentation.
 - `v0.6.0-alpha.1` AI-agent red-team line.
 - Standalone adversarial fixture covering indirect prompt injection, provider-metadata injection, confused-deputy provider targeting, secret exfiltration, and tool-boundary expansion.
 - External machine-readable red-team answer key under `evaluations/agent-red-team-cases.json`.
@@ -35,6 +43,10 @@ The project follows semantic versioning once stable releases begin.
 
 ### Changed
 
+- Security Reviewer now has a distinct Dependabot review mode and keeps Dependabot alerts, security updates, `dependabot.yml`, and organization repository-access configuration separate.
+- Missing `dependabot.yml` encourages configuration but never implies that Dependabot alerts are disabled and is never auto-written without an explicit developer request.
+- Dependabot advisory/package/manifest/URL data is treated as untrusted provider content, bounded before model use, and never accepted as tool instructions.
+- Dependabot Intelligence samples at most 50 open alerts for model context while preserving the total count, severity counts, and truncation marker.
 - Security Reviewer is explicitly scoped to VS Code with the least-privilege `read`, `search`, `edit`, and `execute` tool allowlist.
 - Repository, scanner, CI, pipeline, and JFrog content is explicitly treated as untrusted data rather than instructions.
 - Build Intelligence schema 3 marks external evidence as untrusted, sanitizes credential-bearing URLs, bounds external text, and rejects untrusted branch/worktree provider mappings.
